@@ -52,14 +52,14 @@ void generate_playlist_test(char* filename, char* playlist){
 	if ( !handle )
 		return ;
 
-	if ( !source->open(source, handle, filename) )
+	if ( !source->open(source, handle, filename, FIRST_ACCESS) )
 		return ;
 
-	stats_size 			= streammedia->get_media_stats(handle, source, NULL, 0);
+	stats_size 			= media->get_media_stats(handle, source, NULL, 0);
 	stats_buffer		= (char*)malloc(stats_size);
 
 	if ( !stats_buffer ){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
@@ -71,13 +71,13 @@ void generate_playlist_test(char* filename, char* playlist){
 		int playlist_size 		= generate_playlist(stats_buffer, pure_filename, NULL, 0, NULL);
 		char* playlist_buffer 	= (char*)malloc( playlist_size);
 		if ( !playlist_buffer ){
-			source->close(handle);
+			source->close(handle, 0);
 			return;
 		}
 
 		playlist_size 			= generate_playlist(stats_buffer, pure_filename, playlist_buffer, playlist_size, NULL);
 		if (playlist_size <= 0){
-			source->close(handle);
+			source->close(handle, 0);
 			return ;
 		}
 
@@ -92,7 +92,7 @@ void generate_playlist_test(char* filename, char* playlist){
 
 	}
 
-	source->close(handle);
+	source->close(handle, 0);
 
 	if (stats_buffer)
 		free(stats_buffer);
@@ -137,60 +137,60 @@ void generate_piece(char* filename, char* out_filename, int piece){
 	if ( !handle )
 		return ;
 
-	if ( !source->open(source, handle, filename) )
+	if ( !source->open(source, handle, filename, FIRST_ACCESS) )
 		return ;
 
 	stats_size 			= media->get_media_stats(handle, source, NULL, 0);
 	if ( stats_size <= 0){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
 	stats_buffer		= (char*)malloc( stats_size);
 	if ( !stats_buffer ){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
 	stats_size 				= media->get_media_stats(handle, source, stats_buffer, stats_size);
 	if ( stats_size <= 0){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
 	data_size 			= media->get_media_data(handle, source, stats_buffer, piece, NULL, 0);
 	if (data_size <= 0){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
 	data_buffer 		= (media_data_t*)malloc(data_size);
 	if ( !data_buffer ){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
 	data_size 			= media->get_media_data(handle, source, stats_buffer, piece, data_buffer, data_size);
 	if (data_size <= 0){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
 	muxed_size = mux_to_ts(stats_buffer, data_buffer, NULL, 0);
 	if ( muxed_size <= 0 ){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
 	muxed_buffer = (char*)malloc(muxed_size);
 	if ( !muxed_buffer ){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
 	muxed_size = mux_to_ts(stats_buffer, data_buffer, muxed_buffer, muxed_size);
 	if ( muxed_size <= 0 ){
-		source->close(handle);
+		source->close(handle, 0);
 		return ;
 	}
 
@@ -200,7 +200,7 @@ void generate_piece(char* filename, char* out_filename, int piece){
 		fclose(f);
 	}
 
-	source->close(handle);
+	source->close(handle, 0);
 
 	if (source)
 		free(source);
