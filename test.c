@@ -12,7 +12,7 @@
 #include "hls_mux.h"
 #include "mod_conf.h"
 
-#include "lame.h"
+#include "lame/lame.h"
 
 static char* get_pure_filename(char* filename){
     int len = strlen(filename);

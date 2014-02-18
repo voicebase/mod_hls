@@ -13,10 +13,12 @@
  *
  */
 #include "hls_mux.h"
-
+#include "string.h"
+#include "math.h"
+#include <arpa/inet.h>
 #include "crc.h"
 #include "bitstream.h"
-
+#include "mod_conf.h"
 #include <stdlib.h>
 #include <stdio.h>
 

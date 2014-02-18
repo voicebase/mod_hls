@@ -16,7 +16,7 @@
 #include "hls_media.h"
 #include "mod_conf.h"
 #include <string.h>
-#include "lame.h"
+#include "lame/lame.h"
 #include "hls_mux.h"
 
 

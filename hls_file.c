@@ -17,7 +17,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <curl/curl.h>
-#include "httpd.h"
+#include "string.h"
+/*#include "httpd.h"
 #include "http_config.h"
 #include "http_core.h"
 #include "http_log.h"
@@ -25,20 +26,20 @@
 #include "http_protocol.h"
 #include "http_request.h"
 #include "util_script.h"
-#include "http_connection.h"
+#include "http_connection.h"*/
 
 #include "hls_file.h"
 #include "mod_conf.h"
 
 //#define DISABLE_CACHE
-apr_pool_t* server_pool = NULL;
+//apr_pool_t* server_pool = NULL;
 
-void set_server_pool(apr_pool_t* p){
+/*void set_server_pool(apr_pool_t* p){
 	server_pool = p;
-}
+}*/
 #define HLS_GLOBAL_CACHE_NAME "voicebase-hls-plugin-cache"
 
-//#define TEST_APP
+#define TEST_APP
 
 typedef struct apache_file_handler_t{
 #ifndef TEST_APP
@@ -76,8 +77,9 @@ int file_apache_open(file_source_t* src, file_handle_t* handler, char* filename,
 	afh->r = (request_rec*)src->context;
 
 	rc = apr_file_open(&afh->f, filename, APR_READ | APR_BINARY, APR_OS_DEFAULT, afh->r->pool);
-#endif
 	return rc == APR_SUCCESS ? 1 : 0;
+#endif
+	return 0;//APR_SUCCESS ? 1 : 0;
 }
 
 int file_apache_read(file_handle_t* handler, void* output_buffer, int data_size, int offset_from_file_start, int flags){
