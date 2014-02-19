@@ -107,7 +107,7 @@ int parse_video_file(char *filename, int* n_video_frames);
 int load_data_from_file(char* buf, int size, char* filename);
 
 int mp3_media_get_stats(file_handle_t* handle, file_source_t* source, media_stats_t* output_buffer, int output_buffer_size ){
-	char buf[4096];
+	char buf[16384];
 	int sample_rate;
 	int num_of_channels;
 	int sample_size;
