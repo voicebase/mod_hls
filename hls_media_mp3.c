@@ -53,7 +53,11 @@ int parse_mp3_header_buffer(unsigned char* data, int buffer_size, int* sample_ra
 	//should return mpeg data offset in file (skip id3 tag)
 	if (data[0] == 'I' && data[1] == 'D' && data[2] == '3'){
 		int s = 10 + (int)data[6] * 128 * 128 * 128 + (int)data[7] * 128 * 128 + (int)data[8] * 128 + (int)data[9];
+		if (s >= buffer_size + 4)
+			return -1;
+
 		parse_mp3_header_buffer(data + s, buffer_size - s, sample_rate, frame_size, pframe_duration, pbitrate);
+
 		return s;
 	}else{
 		int ver = get_mpeg_version(data[1]); //0 - mpeg 1, 1 - mpeg 2, 2 - mpeg 2.5
@@ -129,12 +133,20 @@ int mp3_media_get_stats(file_handle_t* handle, file_source_t* source, media_stat
 	int file_size;
 	int frame_duration;
 	int bitrate;
+	int probe_size = 256;
 
 	char* video_logo_filename = get_logo_filename();
 
 	file_size 			= source->get_file_size(handle, 0);
-	rb 					= source->read(handle, buf, 256, 0, 0);
-	data_start_offset 	= parse_mp3_header_buffer(buf, rb, &sample_rate, &frame_size, &frame_duration, &bitrate);
+	do {
+		rb 					= source->read(handle, buf, probe_size, 0, 0);
+		data_start_offset 	= parse_mp3_header_buffer(buf, rb, &sample_rate, &frame_size, &frame_duration, &bitrate);
+		probe_size *= 2;
+	}while(data_start_offset < 0 && probe_size < 16384);
+
+	if (data_start_offset < 0)
+		return -1;
+
 	n_frames 			= file_size/(frame_size);
 	duration			= frame_duration * n_frames * 1.0 / sample_rate;
 
