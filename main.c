@@ -22,7 +22,19 @@ static char* get_pure_filename(char* filename){
     return &filename[pos + 1];
 }
 
-void generate_playlist_test(char* filename, char* playlist){
+char* get_pure_pathname(char* filename){
+    int len = strlen(filename);
+    int pos2 = len;
+    while (pos2 >= 0 && filename[pos2]!='/') {
+    	pos2--;
+    }
+    char* str=(char*)malloc(sizeof(char)*(pos2+1));
+    for(int bbb=0; bbb<=pos2; bbb++)
+    	str[bbb]=filename[bbb];
+    return str;
+}
+
+void generate_playlist_test(char* filename, char* playlist, int* numberofchunks){
 	media_handler_t* 	media;
 	file_source_t*   	source;
 	file_handle_t* 		handle;
@@ -68,14 +80,14 @@ void generate_playlist_test(char* filename, char* playlist){
 	pure_filename = get_pure_filename(filename); //get only filename without any directory info
 
 	if (pure_filename){
-		int playlist_size 		= generate_playlist(stats_buffer, pure_filename, NULL, 0, NULL);
+		int playlist_size 		= generate_playlist(stats_buffer, pure_filename, NULL, 0, NULL, &numberofchunks);
 		char* playlist_buffer 	= (char*)malloc( playlist_size);
 		if ( !playlist_buffer ){
 			source->close(handle, 0);
 			return;
 		}
 
-		playlist_size 			= generate_playlist(stats_buffer, pure_filename, playlist_buffer, playlist_size, NULL);
+		playlist_size 			= generate_playlist(stats_buffer, pure_filename, playlist_buffer, playlist_size, NULL, &numberofchunks);
 		if (playlist_size <= 0){
 			source->close(handle, 0);
 			return ;
@@ -217,6 +229,13 @@ void generate_piece(char* filename, char* out_filename, int piece){
 	if (muxed_buffer)
 		free(muxed_buffer);
 }
+#else
+#include "hls_file.h"
+#include "hls_media.h"
+#include "hls_mux.h"
+#include "mod_conf.h"
+
+#include "lame/lame.h"
 
 #endif
 
@@ -619,31 +638,47 @@ int main (int argc, char* argv[]){
 //	char* res = get_arg_value("source=%22http://192.168.0.105/test_playlist.m3u8%22","source");
 //	printf("source=%s\n", res);
 //	free(res);
+	//argc=3;
+	//argv[1]="/home/bocharick/Work/testfiles/Apocalyptica-fatal.mp3";
+	//argv[2]="/home/bocharick/Work/1/";
+	if (argc==1) {
+		printf("Need parameters!\n\n");
+		printf("First parameter is file: "
+				"\n#example:\n"
+				"/home/user/music/filename.mp3\n");
+		printf("\nSecond parameter is output path: "
+						"\n#example:\n"
+						"/home/user/music/hls/\n");
+		exit(1);
+	}
 
-	char filename[2][255] = { //"/home/alex/work/download/contractor/INSTANT-CONTRACTOR.wav",
-							  //"/home/alex/work/download/problem/249697_2012082202_59_Roxana_QRJvtcDNInmjQVT.wav",
-							  "/home/alex/work/tmp/7605696000-927848-105.mp3",
-			  	  	  	  	  //"/home/alex/work/tmp/32000.mp3",
-							 NULL	};
-	int i = 0;
+	if (argc>1) {
+		if (!argv[2]) {
+			printf("\nNeed output path\n");
+			exit(2);
+		}
+	}
 
 	set_encode_audio_bitrate(64000);
 	set_allow_wav(1);
 	set_allow_mp3(1);
 	set_encode_audio_codec(1);
 	set_segment_length(5);
-	//set_logo_filename("/home/alex/work/tmp/logo.h264");
-	set_logo_filename(NULL);
+	set_logo_filename("/home/bocharick/Work/testfiles/logo.h264");
+	//set_logo_filename(NULL);
+	//This diabolic line will empty
+	char path[1024];
+	sprintf(path,"%s%s.m3u8",get_pure_pathname(argv[2]),get_pure_filename(argv[1]));
+	int counterrr=0;
+	generate_playlist_test(argv[1],path,&counterrr);
 
-
-	generate_playlist_test(filename[0], "/home/alex/work/tmp/test_playlist.m3u8");
-
-	for(i = 0; i < 450; ++i)
-
-	{
+	printf("\ncounterr = %d\n",counterrr);
+	fflush(stdout);
+	//usleep(5000000);
+	for(int i = 0; i < counterrr; ++i) {
 		char tmp[1024];
-		sprintf(tmp, "%s_%d.ts",filename[0], i);
-		generate_piece(filename[0], tmp, i);
+		sprintf(tmp, "%s%s_%d.ts",get_pure_pathname(argv[2]),get_pure_filename(argv[1]), i);
+		generate_piece(argv[1], tmp, i);
 	}
 #endif
 	return 0;

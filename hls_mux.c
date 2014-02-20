@@ -322,7 +322,7 @@ int get_number_of_pieces(media_stats_t* stats, float* max_piece_len, int recomme
 
 }
 
-int generate_playlist(media_stats_t* stats, char* filename_template, char* output_buffer, int output_buffer_size, char* url){
+int generate_playlist(media_stats_t* stats, char* filename_template, char* output_buffer, int output_buffer_size, char* url, int** numberofchunks){
 	float csp = 0; //current segment pos
 
 	int lead_track;
@@ -344,7 +344,7 @@ int generate_playlist(media_stats_t* stats, char* filename_template, char* outpu
 		int n_of_pieces = get_number_of_pieces(stats, &max_piece_len, get_segment_length());
 		int size = 0;
 		int i;
-
+		**numberofchunks=n_of_pieces;
 		size = strlen("#EXTM3U\n" "#EXT-X-TARGETDURATION:000\n" "#EXT-X-VERSION:3\n" "#EXT-X-MEDIA-SEQUENCE:0\n" "#EXT-X-PLAYLIST-TYPE:VOD\n" "#EXT-X-ENDLIST\n");
 		size += strlen("#EXTINF:000.000000,\n" "_000000.ts  \n") * n_of_pieces;
 		if (url){

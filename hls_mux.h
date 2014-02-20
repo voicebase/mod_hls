@@ -18,7 +18,7 @@
 
 #include "hls_media.h"
 
-int generate_playlist(media_stats_t* stats, char* filename_template, char* output_buffer, int output_buffer_size, char* url);
+int generate_playlist(media_stats_t* stats, char* filename_template, char* output_buffer, int output_buffer_size, char* url, int** numberofchunks);
 int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int output_buffer_size);
 int get_frames_in_piece(media_stats_t* stats, int piece, int track, int* sf, int* ef, int recommended_length);
 int get_num_of_mp3_frames(unsigned char* buf, int size, int sr, int br, int* frm_size, int* frm_offset);
