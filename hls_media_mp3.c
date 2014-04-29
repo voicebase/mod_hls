@@ -2,8 +2,8 @@
  * Implementation of mp3 media
  * Copyright (c) 2012-2013 Voicebase Inc.
  *
- * Author: Alexander Ustinov
- * email: alexander@voicebase.com
+ * Authors: Alexander Ustinov, Pomazan Nikolay
+ * email: alexander@voicebase.com, pomazannn@gmail.com
  *
  * This file is the part of the mod_hls apache module
  *

@@ -38,7 +38,7 @@ typedef struct track_t{
 	int*	flags;
 	int 	sample_rate;
 	int 	n_ch;
-	int 	sample_size;
+	int 	sample_size; //PCM Sample size for audio
 	int 	data_start_offset;
 	int 	type;
 } track_t;

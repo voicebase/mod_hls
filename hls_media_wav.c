@@ -499,6 +499,7 @@ media_handler_t wav_file_handler = {
 									};
 
 extern media_handler_t mp3_file_handler;
+extern media_handler_t mp4_file_handler;
 
 media_handler_t* get_media_handler(char* filename){
 	int fn_len = strlen(filename);
@@ -510,6 +511,10 @@ media_handler_t* get_media_handler(char* filename){
 			 	 	 	 	 	 	 	 	 	 	 	   (filename[fn_len - 2] == 'P' || filename[fn_len - 2] == 'p') &&
 			 	 	 	 	 	 	 	 	 	 	 	   (filename[fn_len - 1] == '3')) ){
 		return &mp3_file_handler;
+	}else if ( get_allow_mp3() && fn_len > 3 && filename[fn_len-4] == '.' && ((filename[fn_len - 3] == 'M' || filename[fn_len - 3] == 'm') &&
+ 	 	 	 	   (filename[fn_len - 2] == 'P' || filename[fn_len - 2] == 'p') &&
+ 	 	 	 	   (filename[fn_len - 1] == '4')) ){
+		return &mp4_file_handler;
 	}
 	return 0;
 }

@@ -641,7 +641,16 @@ int main (int argc, char* argv[]){
 	//argc=3;
 	//argv[1]="/home/bocharick/Work/testfiles/Apocalyptica-fatal.mp3";
 	//argv[2]="/home/bocharick/Work/1/";
+
+	//Testing
+	argc=4;
+	argv[1]=("/home/bocharick/Work/testfiles/radiohead.mp3");
+	argv[2]=("/home/bocharick/Work/1/");
+	argv[3]=("/home/bocharick/Work/testfiles/logo.h264");
+
+
 	if (argc==1) {
+		printf("Mod-hls v.0.1.1\n");
 		printf("Need parameters!\n\n");
 		printf("First parameter is file: "
 				"\n#example:\n"
@@ -649,6 +658,9 @@ int main (int argc, char* argv[]){
 		printf("\nSecond parameter is output path: "
 						"\n#example:\n"
 						"/home/user/music/hls/\n");
+		printf("\nThird parameter is logo(.h264): "
+								"\n#example:\n"
+								"/home/user/video/logo.h264\n");
 		exit(1);
 	}
 
@@ -657,14 +669,20 @@ int main (int argc, char* argv[]){
 			printf("\nNeed output path\n");
 			exit(2);
 		}
+		if (!argv[3]) {
+			printf("\nNeed logo\n");
+			exit(2);
+		}
 	}
+
+
 
 	set_encode_audio_bitrate(64000);
 	set_allow_wav(1);
 	set_allow_mp3(1);
 	set_encode_audio_codec(1);
 	set_segment_length(5);
-	set_logo_filename("/home/bocharick/Work/testfiles/logo.h264");
+	set_logo_filename(argv[3]);
 	//set_logo_filename(NULL);
 	//This diabolic line will empty
 	char path[1024];
@@ -672,8 +690,8 @@ int main (int argc, char* argv[]){
 	int counterrr=0;
 	generate_playlist_test(argv[1],path,&counterrr);
 
-	printf("\ncounterr = %d\n",counterrr);
-	fflush(stdout);
+	//printf("\ncounterr = %d\n",counterrr);
+	//fflush(stdout);
 	//usleep(5000000);
 	for(int i = 0; i < counterrr; ++i) {
 		char tmp[1024];
