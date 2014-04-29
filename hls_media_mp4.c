@@ -216,23 +216,20 @@ MP4_BOX* find_box(MP4_BOX* root, char boxtype[5]) {
 }
 
 int handlerType(FILE* mp4, MP4_BOX* root, char handler[5]) {
-	int yeap=0;
 	char hdlr_type[4];
 	fseek(mp4, root->box_first_byte+16, SEEK_SET); //+16 cause of 'hdlr' syntax.
 	fread(hdlr_type, 1, 4, mp4);
 	int counter=0;
 	for (int i=0; i<4; i++) {
-		if(hdlr_type[i]==handler[i])
-			counter++;
-		if(counter==4)
-			yeap=1;
+		if(hdlr_type[i]!=handler[i])
+			return 0;
 	}
-	return yeap>0 ? 1:0;
+	return 1;
 }
 
 MP4_BOX* find_necessary_trak(FILE* mp4, MP4_BOX* root, char trak_type[5]) {
 	MP4_BOX* moov;
-	MP4_BOX* necessary_trak;
+	MP4_BOX* necessary_trak=NULL;
 	MP4_BOX* temp_ptr;
 	moov=find_box(root, "moov");
 	for(int i=0; i<moov->child_count; i++) {
@@ -533,6 +530,24 @@ int get_count_of_traks(MP4_BOX* root, MP4_BOX*** moov_traks) {
 	return trak_counter;
 }
 
+int get_count_of_audio_traks(FILE* mp4, MP4_BOX* root, MP4_BOX*** moov_traks) {
+	MP4_BOX* moov;
+	moov_traks = (MP4_BOX**) malloc (sizeof(MP4_BOX*)*2);
+	if(moov_traks==NULL) {
+		printf("Couldn't allocate memory for moov_traks");
+		exit(1);
+	}
+	moov = find_box(root, "moov");
+	int trak_counter=0;
+	for(int i=0; i<moov->child_count; i++) {
+		if (compare_box_type(moov->child_ptr[i],"trak") && handlerType(mp4,find_box(moov->child_ptr[i],"hdlr"),"soun")) {
+			moov_traks[trak_counter]=moov->child_ptr[i];
+			trak_counter++;
+		}
+	}
+	return trak_counter;
+}
+
 int get_audio_codec(FILE* mp4, MP4_BOX* audio_trak) {
 	MP4_BOX* stsd;
 	stsd = find_box(audio_trak, "stsd");
@@ -547,9 +562,9 @@ int get_audio_codec(FILE* mp4, MP4_BOX* audio_trak) {
 	return 0x0F;
 }
 
-int get_nframes(FILE* mp4, MP4_BOX* audio_trak) {
+int get_nframes(FILE* mp4, MP4_BOX* trak) {
 	MP4_BOX* stsz;
-	stsz = find_box(audio_trak, "stsz");
+	stsz = find_box(trak, "stsz");
 	int* data;
 	int nframes=0;
 	data = read_stsz(mp4, stsz, &nframes);
@@ -559,13 +574,8 @@ int get_nframes(FILE* mp4, MP4_BOX* audio_trak) {
 
 //Bitrate = 0
 
-float* get_pts(FILE* mp4, MP4_BOX* audio_trak, int nframes, int DecoderSpecificInfo) {
-	float* pts;
-	pts = (float*) malloc (sizeof(float)*nframes);
-	if (pts==NULL) {
-		printf("\nCouldn't allocate memory for pts");
-		exit(1);
-	}
+void get_pts(FILE* mp4, MP4_BOX* audio_trak, int nframes, int DecoderSpecificInfo,float* pts) {
+
 	int* delta;
 	delta = (int*) malloc (sizeof(int)*nframes);
 	if (delta==NULL) {
@@ -601,7 +611,8 @@ float* get_pts(FILE* mp4, MP4_BOX* audio_trak, int nframes, int DecoderSpecificI
 	for(int i=1; i<nframes; i++) {
 		pts[i]=pts[i-1]+((float)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo]);
 	}
-	return pts;
+	free(delta);
+
 }
 
 // dts = pts;
@@ -623,18 +634,49 @@ void get_samplerate_and_nch(int DecoderSpecificInfo, int* sample_rate, int* n_ch
 
 //type = 0;
 
-media_stats_t get_MediaStatsT(FILE* mp4, MP4_BOX* root) {
-	MP4_BOX** moov_traks;
-	int n_tracks=get_count_of_traks(root, moov_traks);
-	track_t* track[2];
-	track=(track_t*) malloc (sizeof(track_t)*2);
-	if (track==NULL) {
-		printf("Couldn't allocate memory for track");
-		exit(1);
+int get_MediaStatsT(FILE* mp4, MP4_BOX* root, media_stats_t* m_stat_ptr) {
+	int MediaStatsT=0;
+	MP4_BOX** moov_traks=NULL;
+	int n_tracks=get_count_of_audio_traks(mp4, root, moov_traks);
+	track_t* track;
+
+	if (m_stat_ptr==NULL) {
+		MediaStatsT=sizeof(media_stats_t)+sizeof(track_t)*n_tracks;
+		for (int i=0; i<n_tracks; i++) {
+			MediaStatsT+=((sizeof(float)+sizeof(int))*get_nframes(mp4,moov_traks[i]));
+		}
+		return MediaStatsT;
 	}
+
+	m_stat_ptr->n_tracks=n_tracks;
 	for (int i=0; i<n_tracks && i<2; i++) {
-		trak[i]
+		if (i==0)
+			m_stat_ptr->track[i]=(char*)m_stat_ptr+sizeof(media_stats_t);
+		else
+			m_stat_ptr->track[i]=(char*)m_stat_ptr->track[i-1]+sizeof(track_t)+((sizeof(float)+sizeof(int))*track[i-1].n_frames);
+
+		track=m_stat_ptr->track[i];
+		if(handlerType(mp4,find_box(moov_traks[i],"hdlr"),"soun"))
+			track->codec=get_audio_codec(mp4,moov_traks[i]);
+		else track->codec=0;
+		/*//NEED TO MAKE THIS FUNCTION
+		else if(handlerType(mp4,find_box(moov_traks[i],"vide")))
+			track[i].codec=get_video_codec(mp4,moov_traks[i]);
+		*/
+		track->n_frames=get_nframes(mp4,moov_traks[i]);
+		track->bitrate=0;
+		get_pts(mp4,moov_traks[i],track->n_frames,get_DecoderSpecificInfo(mp4,find_box(moov_traks[i],"stsd")),track->pts);
+		track->dts=track->pts;
+		track->repeat_for_every_segment=0;
+		memset(track->flags,0,track->n_frames*sizeof(int));
+		get_samplerate_and_nch(get_DecoderSpecificInfo(mp4,find_box(moov_traks[i],"stsd")), &track->sample_rate, &track->n_ch);
+		track->sample_size=16;
+		track->data_start_offset=0;
+		track->type=0;
+
 	}
+
+	return MediaStatsT;
 }
 
 
