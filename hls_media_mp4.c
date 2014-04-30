@@ -619,7 +619,7 @@ void get_pts(FILE* mp4, MP4_BOX* audio_trak, int nframes, int DecoderSpecificInf
 
 //repeat_for_every_segment = 0;
 
-//flags[] = {0,....,0};
+//flags[] = {1,....,1};
 
 void get_samplerate_and_nch(int DecoderSpecificInfo, int* sample_rate, int* n_ch) {
 	int sample_rate_index = (DecoderSpecificInfo>>7) & 15;
@@ -637,7 +637,7 @@ void get_samplerate_and_nch(int DecoderSpecificInfo, int* sample_rate, int* n_ch
 int get_MediaStatsT(FILE* mp4, MP4_BOX* root, media_stats_t* m_stat_ptr) {
 	int MediaStatsT=0;
 	MP4_BOX** moov_traks=NULL;
-	int n_tracks=get_count_of_audio_traks(mp4, root, moov_traks);
+	int n_tracks=get_count_of_audio_traks(mp4, root, &moov_traks);
 	track_t* track;
 
 	if (m_stat_ptr==NULL) {
@@ -665,10 +665,13 @@ int get_MediaStatsT(FILE* mp4, MP4_BOX* root, media_stats_t* m_stat_ptr) {
 		*/
 		track->n_frames=get_nframes(mp4,moov_traks[i]);
 		track->bitrate=0;
+		track->pts=(char*)track+sizeof(track_t);
 		get_pts(mp4,moov_traks[i],track->n_frames,get_DecoderSpecificInfo(mp4,find_box(moov_traks[i],"stsd")),track->pts);
 		track->dts=track->pts;
 		track->repeat_for_every_segment=0;
-		memset(track->flags,0,track->n_frames*sizeof(int));
+		track->flags=(char*)track->pts+sizeof(float)*track->n_frames;
+		for(int z=0; z<track->n_frames; z++)
+			track->flags[z]=1;
 		get_samplerate_and_nch(get_DecoderSpecificInfo(mp4,find_box(moov_traks[i],"stsd")), &track->sample_rate, &track->n_ch);
 		track->sample_size=16;
 		track->data_start_offset=0;
@@ -679,7 +682,65 @@ int get_MediaStatsT(FILE* mp4, MP4_BOX* root, media_stats_t* m_stat_ptr) {
 	return MediaStatsT;
 }
 
+int get_MediaDataT(FILE* mp4, MP4_BOX* root, int piece, media_stats_t* stats, media_data_t* output_buffer ) {
+	int MediaDataT=0;
+	MP4_BOX** moov_traks=NULL;
+	int n_tracks=get_count_of_audio_traks(mp4, root, moov_traks);
+	//int n_tracks=stats->n_tracks;
+	int lenght=5; // recommended_lenght for test
 
+	if(output_buffer==NULL) {
+		MediaDataT=sizeof(media_data_t)+sizeof(track_data_t)*n_tracks;
+		int tmp_sf=0, tmp_ef=0, sample_count=0;
+		for (int i=0; i<n_tracks; i++) {
+			int* stsz_data=read_stsz(mp4, find_box(moov_traks[i],"stsz"), &sample_count);
+			int tmp_buffer_size=0;
+			int temp_nframes=get_frames_in_piece(stats, piece, i, &tmp_sf, &tmp_ef, lenght);
+			for(int j=tmp_sf; j<tmp_ef; j++)
+				tmp_buffer_size+=stsz_data[j];
+			MediaDataT+=(sizeof(int/*int* size*/)+sizeof(int/*int* offset*/))*temp_nframes+sizeof(char/*char* buffer*/)*tmp_buffer_size;
+			free(stsz_data);
+		}
+		return MediaDataT;
+	}
+
+	media_data_t* data;
+	track_data_t* track_data;
+	output_buffer->n_tracks=n_tracks;
+	for(int i=0; i<n_tracks; i++) {
+
+	/*	if (i==0)
+			m_stat_ptr->track[i]=(char*)m_stat_ptr+sizeof(media_stats_t);
+		else
+			m_stat_ptr->track[i]=(char*)m_stat_ptr->track[i-1]+sizeof(track_t)+((sizeof(float)+sizeof(int))*track[i-1].n_frames);*/
+
+		if (i==0)
+			output_buffer->track_data[i]=(char*)output_buffer+sizeof(media_data_t);
+		else
+			output_buffer->track_data[i]=(char*)output_buffer->track_data[i-1]+sizeof(track_data_t)+sizeof(char)*output_buffer->track_data[i-1]->buffer_size+(sizeof(int)*output_buffer->track_data[i-1]->n_frames)*2;
+
+		track_data=output_buffer->track_data[i];
+		int tmp_ef=0, tmp_sample_count=0;
+		track_data->n_frames=get_frames_in_piece(stats, piece, i, &track_data->first_frame, &tmp_ef, lenght);
+		int* stsz_data=read_stsz(mp4, find_box(moov_traks[i],"stsz"), &tmp_sample_count);
+		track_data->buffer=(char*)track_data+sizeof(track_data_t);
+		track_data->buffer_size=0;
+		int k=0;
+		track_data->size=(char*)track_data->buffer+track_data->buffer_size;
+		track_data->offset=(char*)track_data->size+sizeof(int)*track_data->n_frames;
+		for(int j=track_data->first_frame; j<tmp_ef; j++) {
+			track_data->size[k]=stsz_data[j];
+			track_data->offset[k]=track_data->buffer_size;
+			track_data->buffer_size+=stsz_data[j];
+			++k;
+		}
+		track_data->frames_written=0;
+		track_data->data_start_offset=0;
+		track_data->cc=0;
+	}
+
+	return MediaDataT;
+}
 
 media_handler_t mp4_file_handler = {
 										//.get_media_stats = mp4_media_get_stats,

@@ -279,7 +279,7 @@ int get_frames_in_piece(media_stats_t* stats, int piece, int track, int* sf, int
 		}
 		++ns;
 	}
-	++(*sf);
+
 
 	return *ef - *sf;
 }
