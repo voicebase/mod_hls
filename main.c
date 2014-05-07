@@ -212,6 +212,20 @@ void generate_piece(char* filename, char* out_filename, int piece){
 		fclose(f);
 	}
 
+	// FOR TEST
+	if(piece == 0) {
+		media_stats_t* p;
+		p=stats_buffer;
+		for (int kkk=0; kkk<300; kkk++)
+			printf("\nPTS %d = %f",kkk,p->track[0]->pts[kkk]);
+	}
+
+
+
+
+
+	///
+
 	source->close(handle, 0);
 
 	if (source)
@@ -228,6 +242,8 @@ void generate_piece(char* filename, char* out_filename, int piece){
 
 	if (muxed_buffer)
 		free(muxed_buffer);
+
+
 }
 #else
 #include "hls_file.h"
@@ -644,7 +660,7 @@ int main (int argc, char* argv[]){
 
 	//Testing
 	argc=4;
-	argv[1]=("/home/bocharick/Work/testfiles/radiohead.mp3");
+	argv[1]=("/home/bocharick/Work/testfiles/testfile2.mp4");
 	argv[2]=("/home/bocharick/Work/1/");
 	argv[3]=("/home/bocharick/Work/testfiles/logo.h264");
 
@@ -684,7 +700,7 @@ int main (int argc, char* argv[]){
 	set_segment_length(5);
 	set_logo_filename(argv[3]);
 	//set_logo_filename(NULL);
-	//This diabolic line will empty
+
 	char path[1024];
 	sprintf(path,"%s%s.m3u8",get_pure_pathname(argv[2]),get_pure_filename(argv[1]));
 	int counterrr=0;
