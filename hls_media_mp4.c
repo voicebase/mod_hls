@@ -677,6 +677,7 @@ void get_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* audio_trak, int
 	pts[0]=0;
 	DecoderSpecificInfo = (DecoderSpecificInfo>>7) & 15;
 	for(int i=1; i<nframes; i++) {
+		//pts[i]=pts[i-1]+((float)1024/SamplingFrequencies[DecoderSpecificInfo]);
 		pts[i]=pts[i-1]+((float)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo]);
 	}
 	free(delta);
@@ -872,7 +873,7 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 		long long frequency_index=0;
 		long long channel_count=0;
 		long long TempMask=0;
-		objecttype = (DecSpecInfo >> 11) - 1;
+		objecttype = 0;//(DecSpecInfo >> 11) - 1;
 		frequency_index = (DecSpecInfo >> 7) & 15;
 		channel_count = (DecSpecInfo >> 3) & 15;
 
