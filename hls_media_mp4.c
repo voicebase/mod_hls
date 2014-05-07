@@ -803,9 +803,9 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 		track_data->offset=(char*)track_data->size+sizeof(int)*track_data->n_frames;
 		track_data->buffer=(char*)track_data->offset+sizeof(int)*track_data->n_frames;
 		for(int j=track_data->first_frame; j<tmp_ef; j++) {
-			track_data->size[k]=stsz_data[j];
-			track_data->offset[k]=track_data->buffer_size;
-			track_data->buffer_size+=stsz_data[j]+7; // 7 - adts header size
+			track_data->size[k]		=stsz_data[j]+7;// 7 - adts header size
+			track_data->offset[k]	=track_data->buffer_size;
+			track_data->buffer_size+=track_data->size[k];
 			++k;
 		}
 		track_data->frames_written=0;
@@ -888,7 +888,7 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 				for_write=TempMask >> g*8;
 				track_data->buffer[track_data->offset[z-track_data->first_frame]+t]=for_write;
 			}
-			source->read(mp4, (char*)track_data->buffer+track_data->offset[z-track_data->first_frame]+7,track_data->size[z-track_data->first_frame], mp4_sample_offset[z], 0);
+			source->read(mp4, (char*)track_data->buffer+track_data->offset[z-track_data->first_frame]+7,track_data->size[z-track_data->first_frame] - 7, mp4_sample_offset[z], 0);
 		}
 
 		//OUTPUT TESTING
