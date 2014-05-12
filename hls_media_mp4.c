@@ -408,7 +408,7 @@ int get_DecoderSpecificInfo(file_handle_t* mp4, file_source_t* source, MP4_BOX* 
 	 * 		samplerate - 4 byte
 	 * 	esds
 	 * 		Fullbox - 12 byte
-	 * 		tag - 1 byte
+	 * 		tag  - 1 byte
 	 * 		size - (#1)1*N byte (if size <128  N==1), else
 													int sizeOfInstance = 0;
 													bit(1) nextByte;
@@ -470,6 +470,156 @@ int get_DecoderSpecificInfo(file_handle_t* mp4, file_source_t* source, MP4_BOX* 
 	// Temporary ignored 5 bytes info;
 	return data0;
 }
+
+char* get_AVCDecoderSpecificInfo(file_handle_t* mp4, file_source_t* source, MP4_BOX* stsd, int* avc_dec_info_size) {
+	/*
+	 * stsd:
+	 * 		Fullbox - 12 byte
+	 * 		entry_count - 4 byte
+	 * VisualSampleEntry
+	 * 		Box - 8 byte
+	 * 		reserverd - 6 byte
+	 * 		data_references_index - 2 byte
+	 *
+	 *		pre_defined - 2 byte
+	 *		reserved - 2 byte
+	 *		pre_defined - 12 byte
+	 *		width - 2 byte
+	 *		height - 2 byte
+	 *		horizresolution - 4 byte
+	 *		vertresolution - 4 byte
+	 *		reserved - 4 byte
+	 *		frame_count - 2 byte
+	 *		compressorname - 32 byte
+	 *		depth - 2 byte
+	 *		pre_defined - 2 byte
+	 *
+	 * AVCSampleEntry
+	 * 		AVCConfigurationBox
+	 * 			Box - 8 byte ("avcC")
+	 * 			AVCDecoderConfigurationRecord {
+					configurationVersion  - 1 byte
+					AVCProfileIndication - 1 byte
+					profile_compatibility - 1 byte
+					AVCLevelIndication - 1 byte
+					reserved = ‘111111’b - 6 bit
+					lengthSizeMinusOne - 2 bit
+					reserved = ‘111’b - 3 bit
+					numOfSequenceParameterSets - 5 bit
+					for (i=0; i< numOfSequenceParameterSets; i++) {
+						sequenceParameterSetLength - 2 byte
+						sequenceParameterSetNALUnit - 1*(sequenceParameterSetLength) byte
+					}
+					numOfPictureParameterSets - 1 byte
+					for (i=0; i< numOfPictureParameterSets; i++) {
+						pictureParameterSetLength - 2 byte
+						pictureParameterSetNALUnit - 1*(pictureParameterSetLength) byte
+					}
+				}
+	 *
+	 *
+	 */
+	int skip_bytes=stsd->box_first_byte; // byte counter before Data[0];
+	int entry_count=0;
+	skip_bytes+=source->read(mp4, &entry_count, 4, skip_bytes, 0);
+	entry_count=ntohl(entry_count);
+	skip_bytes+=86;
+	if (entry_count>1) {
+		int box_size=0;
+		char box_name[4]={0,0,0,0};
+		while (memcmp("avcC", box_name, 4)!=0) {
+			source->read(mp4, &box_size, 4, skip_bytes, 0);
+			source->read(mp4, box_name, 4, skip_bytes+4, 0);
+			box_size=ntohl(box_size);
+			if (memcmp("avcC",box_name, 4)!=0)
+				skip_bytes+=box_size;
+		}
+	}
+	skip_bytes+=13; // avcC before reserved 3 bits
+	int numofSPS=0;
+	skip_bytes+=source->read(mp4, &numofSPS, 1, skip_bytes, 0);
+	numofSPS&=31;
+	int* SPSLength;
+	SPSLength = (int*) malloc (sizeof(int)*numofSPS);
+	if (SPSLength==NULL) {
+		printf("Couldn't allocate memory for SPSLength");
+		exit(1);
+	}
+	int sps_length_summ=0;
+	int sps_count=skip_bytes;
+	for (int i=0; i<numofSPS; i++) {
+		source->read(mp4, SPSLength[i], 2, sps_count, 0);
+		SPSLength[i]=ntohl(SPSLength[i]);
+		sps_length_summ+=SPSLength[i];
+		sps_count+=2+SPSLength[i];
+	}
+	char* SPS=NULL;
+	SPS = (char*) malloc (sizeof(char)*sps_length_summ+sizeof(char)*4*numofSPS);
+	if (SPS==NULL) {
+			printf("Couldn't allocate memory for SPS");
+			exit(1);
+	}
+	sps_count=skip_bytes+2;
+	char* temp_ptr=SPS;
+	char annexb_syncword[4]={0,0,0,1};
+	for (int i=0; i<numofSPS; i++) {
+		memcpy(temp_ptr, annexb_syncword, 4);
+		source->read(mp4, temp_ptr+4, SPSLength[i], sps_count, 0);
+		sps_count+=SPSLength[i]+2;
+		temp_ptr+=4+SPSLength[i];
+	}
+	skip_bytes=sps_count;
+
+	int numofPPS=0;
+	skip_bytes+=source->read(mp4, &numofPPS, 1, skip_bytes, 0);
+	int* PPSLength;
+	PPSLength = (int*) malloc (sizeof(int)*numofPPS);
+	if (PPSLength==NULL) {
+			printf("Couldn't allocate memory for PPSLength");
+			exit(1);
+		}
+	int pps_length_summ=0;
+	int pps_count=skip_bytes;
+	for (int i=0; i<numofPPS; i++) {
+		source->read(mp4, PPSLength[i], 2, pps_count, 0);
+		PPSLength[i]=ntohl(PPSLength[i]);
+		pps_length_summ+=PPSLength[i];
+		pps_count+=2+PPSLength[i];
+	}
+	char* PPS;
+	PPS = (char*) malloc (sizeof(char)*pps_length_summ+sizeof(char)*4*numofPPS);
+	if (PPS==NULL) {
+		printf("Couldn't allocate memory for PPS");
+		exit(1);
+	}
+	pps_count=skip_bytes+2;
+	temp_ptr=PPS;
+	for (int i=0; i<numofPPS; i++) {
+		memcpy(temp_ptr, annexb_syncword, 4);
+		source->read(mp4, temp_ptr+4, PPSLength[i], pps_count, 0);
+		pps_count+=PPSLength[i]+2;
+		temp_ptr+=4+PPSLength[i];
+	}
+
+	char* avc_decoder_info=NULL; //SPS+PPS
+	int SPS_size=sizeof(char)*sps_length_summ+sizeof(char)*4*numofSPS;
+	int PPS_size=sizeof(char)*pps_length_summ+sizeof(char)*4*numofPPS;
+	//avc_decoder_info= (char*) malloc (sizeof(char)*(sps_length_summ+pps_length_summ)+sizeof(char)*4*(numofSPS+numofPPS));
+	avc_decoder_info= (char*) malloc (SPS_size+PPS_size);
+	if (avc_decoder_info==NULL) {
+		printf("Couldn't allocate memory for avc_decoder_info");
+		exit(1);
+	}
+	*avc_dec_info_size=SPS_size+PPS_size;
+	memcpy(avc_decoder_info, SPS, SPS_size);
+	memcpy(avc_decoder_info+SPS_size, PPS, PPS_size);
+	free(SPS);
+	free(SPSLength);
+	free(PPS);
+	free(PPSLength);
+	return avc_decoder_info;
+}
+
 
 void get_sounddata_to_file(file_handle_t* mp4, file_source_t* source, MP4_BOX* root) {
 	FILE* mp4_sound;
@@ -576,7 +726,7 @@ void get_sounddata_to_file(file_handle_t* mp4, file_source_t* source, MP4_BOX* r
 }
 
 
-int get_count_of_traks(MP4_BOX* root, MP4_BOX*** moov_traks) {
+int get_count_of_traks(file_handle_t* mp4, file_source_t* source, MP4_BOX* root, MP4_BOX*** moov_traks) {
 	MP4_BOX* moov;
 	moov_traks = (MP4_BOX**) malloc (sizeof(MP4_BOX*)*2);
 	if(moov_traks==NULL) {
@@ -586,7 +736,8 @@ int get_count_of_traks(MP4_BOX* root, MP4_BOX*** moov_traks) {
 	moov = find_box(root, "moov");
 	int trak_counter=0;
 	for(int i=0; i<moov->child_count; i++) {
-		if (compare_box_type(moov->child_ptr[i],"trak")==1) {
+		if (trak_counter<2 && compare_box_type(moov->child_ptr[i],"trak") &&
+			(handlerType(mp4, source, find_box(moov->child_ptr[i],"hdlr"), "soun") || handlerType(mp4, source, find_box(moov->child_ptr[i],"hdlr"), "vide"))) {
 			moov_traks[trak_counter]=moov->child_ptr[i];
 			trak_counter++;
 		}
@@ -637,8 +788,6 @@ int get_nframes(file_handle_t* mp4, file_source_t* source, MP4_BOX* trak) {
 	return nframes;
 }
 
-//Bitrate = 0
-
 void get_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* audio_trak, int nframes, int DecoderSpecificInfo,float* pts) {
 	int* delta;
 	delta = (int*) malloc (sizeof(int)*nframes);
@@ -655,8 +804,8 @@ void get_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* audio_trak, int
 	stts_entry_count=ntohl(stts_entry_count);
 
 	//TEST stts_entry_count
-	printf("\nstts_entry_count = %d\n",stts_entry_count);
-	fflush(stdout);
+	//printf("\nstts_entry_count = %d\n",stts_entry_count);
+	//fflush(stdout);
 	//
 	int sample_count=0;
 	int sample_size=0;
@@ -684,11 +833,134 @@ void get_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* audio_trak, int
 
 }
 
-// dts = pts;
+void get_video_dts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_trak, int nframes, float* dts) {
+	int* delta;
+	delta = (int*) malloc (sizeof(int)*nframes);
+	if (delta==NULL) {
+		printf("\nCouldn't allocate memory for TMP_video_dts");
+		exit(1);
+	}
+	MP4_BOX* stts=NULL;
+	stts = find_box(video_trak, "stts");
+	int stts_entry_count=0;
+//	fseek(mp4, stts->box_first_byte+12, SEEK_SET);
+//	fread(&stts_entry_count, 4, 1, mp4);
+	source->read(mp4, &stts_entry_count, 4, stts->box_first_byte+12, 0);
+	stts_entry_count=ntohl(stts_entry_count);
+	int sample_count=0;
+	int sample_size=0;
+	int delta_counter=0;
+	int how_much=stts->box_first_byte+12+4;
+	for(int i=0; i<stts_entry_count; i++) {
+		//fread(&sample_count,4,1,mp4);
+		//fread(&sample_size,4,1,mp4);
+		how_much+=source->read(mp4, &sample_count, 4, how_much, 0);
+		how_much+=source->read(mp4, &sample_size, 4, how_much, 0);
+		sample_count=ntohl(sample_count);
+		sample_size=ntohl(sample_size);
+		for(int k=0; k<sample_count; k++) {
+			delta[delta_counter]=sample_size;
+			delta_counter++;
+		}
+	}
+	MP4_BOX* mdhd=NULL;
+	mdhd = find_box(video_trak, "mdhd");
+	int mdhd_version=0;
+	source->read(mp4, &mdhd_version, 1, mdhd->box_first_byte+8, 0);
+	int need_to_skip=0;
+	if(mdhd_version==1) {
+		need_to_skip=16;
+	}
+	else if(mdhd==0) {
+		need_to_skip=8;
+	}
+	else if(mdhd!=0 && mdhd!=1) {
+		printf("\ntrak's mdhd!=0 && mdhd!=1");
+		exit(1);
+	}
+	int timescale=0;
+	source->read(mp4, &timescale, 4, mdhd->box_first_byte+12+need_to_skip, 0);
+	timescale=ntohl(timescale);
+	dts[0]=0;
+	for(int i=1; i<nframes; i++) {
+		dts[i]=dts[i-1]+((float)delta[i-1]/timescale);
+	}
+	free(delta);
+}
 
-//repeat_for_every_segment = 0;
+void get_video_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_trak, int nframes, float* pts, float* dts) {
+	int* delta;
+	delta = (int*) malloc (sizeof(int)*nframes);
+	if (delta==NULL) {
+		printf("\nCouldn't allocate memory for TMP_video_dts");
+		exit(1);
+	}
+	MP4_BOX* ctts=NULL;
+	ctts = find_box(video_trak, "ctts");
+	int ctts_entry_count=0;
+	source->read(mp4, &ctts_entry_count, 4, ctts->box_first_byte+12, 0);
+	ctts_entry_count=ntohl(ctts_entry_count);
+	int sample_count=0;
+	int sample_size=0;
+	int delta_counter=0;
+	int how_much=ctts->box_first_byte+12+4;
+	for(int i=0; i<ctts_entry_count; i++) {
+		//fread(&sample_count,4,1,mp4);
+		//fread(&sample_size,4,1,mp4);
+		how_much+=source->read(mp4, &sample_count, 4, how_much, 0);
+		how_much+=source->read(mp4, &sample_size, 4, how_much, 0);
+		sample_count=ntohl(sample_count);
+		sample_size=ntohl(sample_size);
+		for(int k=0; k<sample_count; k++) {
+			delta[delta_counter]=sample_size;
+			delta_counter++;
+		}
+	}
+	MP4_BOX* mdhd=NULL;
+	mdhd = find_box(video_trak, "mdhd");
+	int mdhd_version=0;
+	source->read(mp4, &mdhd_version, 1, mdhd->box_first_byte+8, 0);
+	int need_to_skip=0;
+	if(mdhd_version==1) {
+		need_to_skip=16;
+	}
+	else if(mdhd==0) {
+		need_to_skip=8;
+	}
+	else if(mdhd!=0 && mdhd!=1) {
+		printf("\ntrak's mdhd!=0 && mdhd!=1");
+		exit(1);
+	}
+	int timescale=0;
+	source->read(mp4, &timescale, 4, mdhd->box_first_byte+12+need_to_skip, 0);
+	timescale=ntohl(timescale);
+	pts[0]=0;
+	for(int i=0; i<nframes; i++) {
+		pts[i]=dts[i]+(float)delta[i]/timescale;
+	}
+	free(delta);
 
-//flags[] = {1,....,1};
+}
+
+int* get_stss(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_trak) {
+	MP4_BOX* stss_ptr;
+	stss_ptr=find_box(video_trak, "stss");
+	int stss_entry_count=0;
+	source->read(mp4, &stss_entry_count, 4, stss_ptr->box_first_byte+12, 0);
+	stss_entry_count=ntohl(stss_entry_count);
+	int how_much=stss_ptr->box_first_byte+16;
+	int* stss;
+	stss = (int*) malloc (sizeof(int)*stss_entry_count);
+	if (stss==NULL) {
+			printf("\nCouldn't allocate memory for stss");
+			exit(1);
+		}
+	for (int i=0; i<stss_entry_count; i++) {
+		how_much+=source->read(mp4, stss[i], 4, how_much, 0);
+		stss[i]=ntohl(stss[i]);
+	}
+	return stss;
+}
 
 void get_samplerate_and_nch(int DecoderSpecificInfo, int* sample_rate, int* n_ch) {
 	int sample_rate_index = (DecoderSpecificInfo>>7) & 15;
@@ -697,17 +969,11 @@ void get_samplerate_and_nch(int DecoderSpecificInfo, int* sample_rate, int* n_ch
 	*n_ch = ChannelConfigurations[n_ch_index];
 }
 
-//sample_size = 16 bit;
-
-//data_start_offset = 0 //isn't necessary
-
-//type = 0;
-
 int mp4_media_get_stats(file_handle_t* mp4, file_source_t* source, media_stats_t* m_stat_ptr, int output_buffer_size) {
 	MP4_BOX* root=mp4_looking(mp4,source);
 	int MediaStatsT=0;
 	MP4_BOX** moov_traks=NULL;
-	int n_tracks=get_count_of_audio_traks(mp4, source, root, &moov_traks);
+	int n_tracks=get_count_of_traks(mp4, source, root, &moov_traks);
 	track_t* track;
 
 	if (m_stat_ptr==NULL) {
@@ -906,21 +1172,4 @@ media_handler_t mp4_file_handler = {
 										.get_media_stats = mp4_media_get_stats,
 										.get_media_data  = mp4_media_get_data
 									};
-/*
-int main(void) {
 
-	FILE* mp4;
-	mp4 = fopen("/home/bocharick/Work/testfiles/testfile2.mp4", "rb");
-	if (mp4==NULL) {
-		printf("\nCan't open file\n");
-		exit(1);
-	}
-	MP4_BOX* root;
-	root = mp4_looking(mp4);
-	get_sounddata_to_file(mp4,root);
-	printf("\n");read_stsz
-	i_want_to_break_free(root);
-	fclose(mp4);
-	return 0;
-}
-*/
