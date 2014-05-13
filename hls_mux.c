@@ -584,7 +584,7 @@ int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int
 				size += data->track_data[i]->size[j];
 			}
 		}
-		return size * 2.0 + 20000; //we estimate transport stream overhead 20% and should add buffer if data amount too low
+		return size * 4.0 + 20000; //we estimate transport stream overhead 20% and should add buffer if data amount too low
 	}
 	lead_track = find_lead_track(stats);
 	video_track = find_video_track(stats);
@@ -600,8 +600,8 @@ int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int
 		pos += put_pmt(output_buffer + pos, stats, &pmt_cc, lead_track);
 
 		pos += put_data_frame(output_buffer + pos, stats, data, lead_track, lead_track, 0);
-
-		pos += put_data_frame(output_buffer + pos, stats, data, video_track, lead_track, 1);
+		if (lead_track != video_track)
+			pos += put_data_frame(output_buffer + pos, stats, data, video_track, lead_track, 1);
 	}
 
 	//put other frames
