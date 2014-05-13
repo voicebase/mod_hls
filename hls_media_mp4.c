@@ -1024,6 +1024,13 @@ int mp4_media_get_stats(file_handle_t* mp4, file_source_t* source, media_stats_t
 			get_pts(mp4, source, moov_traks[i],track->n_frames,get_DecoderSpecificInfo(mp4, source, find_box(moov_traks[i],"stsd")),track->pts);
 			get_samplerate_and_nch(get_DecoderSpecificInfo(mp4,source,find_box(moov_traks[i],"stsd")), &track->sample_rate, &track->n_ch);
 			track->sample_size=16;
+			//PTS Test PRINTF
+			/*
+			for(int vvv=0; vvv<track->n_frames; vvv++)
+				printf("\nSOUND DTS = %f",track->dts[vvv]);
+			*/
+
+
 		}
 		if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"vide")) {
 			track->pts=(char*)track+sizeof(track_t);
@@ -1041,6 +1048,13 @@ int mp4_media_get_stats(file_handle_t* mp4, file_source_t* source, media_stats_t
 			track->n_ch=0;
 			track->sample_rate=0;
 			track->sample_size=0;
+
+
+
+			//PTS Test PRINTF
+			/*for(int vvv=0; vvv<track->n_frames; vvv++)
+				printf("\nVIDEO DTS = %f",track->dts[vvv]);
+			*/
 		}
 		track->repeat_for_every_segment=0;
 		track->data_start_offset=0;
@@ -1049,6 +1063,17 @@ int mp4_media_get_stats(file_handle_t* mp4, file_source_t* source, media_stats_t
 	}
 	i_want_to_break_free(root);
 	return output_buffer_size;
+}
+
+void convert_to_annexb(char* ptr, int buffer_size) {
+	char annexb[4]={0,0,0,1};
+	int nal_size=0;
+	for(int i=0; i<buffer_size; ) {
+	memcpy(&nal_size, ptr+i, 4);
+	memcpy(ptr+i, annexb, 4);
+	nal_size=ntohl(nal_size);
+	i+=nal_size+4;
+	}
 }
 
 int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t* stats, int piece, media_data_t* output_buffer, int output_buffer_size) {
@@ -1228,13 +1253,17 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 			AVCDecInfo=get_AVCDecoderSpecificInfo(mp4, source, find_box(moov_traks[i],"stsd"), &avc_decinfo_size);
 			for (int z = track_data->first_frame; z < track_data->first_frame+track_data->n_frames; z++) {
 				if (z==track_data->first_frame) {
+					int nal_size=0;
 					for(int m=0; m<avc_decinfo_size; m++)
 						track_data->buffer[m]=AVCDecInfo[m];
-					source->read(mp4,(char*)track_data->buffer+avc_decinfo_size, track_data->size[z]-avc_decinfo_size,mp4_sample_offset[z],0);
+					source->read(mp4,(char*)track_data->buffer+avc_decinfo_size, track_data->size[z-track_data->first_frame]-avc_decinfo_size,mp4_sample_offset[z],0);
+					convert_to_annexb((char*)track_data->buffer+avc_decinfo_size, track_data->size[z-track_data->first_frame]-avc_decinfo_size);
 					free(AVCDecInfo);
 				}
-				else
-					source->read(mp4,(char*)track_data->buffer+track_data->offset[z], track_data->size[z],mp4_sample_offset[z],0);
+				else {
+					source->read(mp4,(char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame],mp4_sample_offset[z],0);
+					convert_to_annexb((char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame]);
+				}
 			}
 
 

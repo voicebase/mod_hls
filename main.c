@@ -213,13 +213,14 @@ void generate_piece(char* filename, char* out_filename, int piece){
 	}
 
 	// FOR TEST
+	/*
 	if(piece == 0) {
 		media_stats_t* p;
 		p=stats_buffer;
 		for (int kkk=0; kkk<300; kkk++)
 			printf("\nPTS %d = %f",kkk,p->track[0]->pts[kkk]);
 	}
-
+	 */
 
 
 
