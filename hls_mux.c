@@ -243,7 +243,7 @@ int find_lead_track(media_stats_t* stats){
 	return result;
 }
 
-int get_frames_in_piece(media_stats_t* stats, int piece, int track, int* sf, int* ef, int recommended_length){
+int get_frames_in_piece_for_track(media_stats_t* stats, int piece, int track, int* sf, int* ef, int recommended_length){
 	float csp = 0; //current segment pos
 	int cspi = 0;//current segment index pos
 
@@ -280,6 +280,55 @@ int get_frames_in_piece(media_stats_t* stats, int piece, int track, int* sf, int
 		++ns;
 	}
 
+	return *ef - *sf;
+}
+
+int get_frames_in_piece(media_stats_t* stats, int piece, int track, int* sf, int* ef, int recommended_length){
+
+	int lead_track = find_lead_track(stats);
+
+	int nsf = 0;
+	int nef = 0;
+
+	if (track == lead_track){
+		return get_frames_in_piece_for_track(stats, piece, lead_track, sf, ef, recommended_length);
+	}
+
+	get_frames_in_piece_for_track(stats, piece, lead_track, &nsf, &nef, recommended_length);
+
+	float csp = 0; //current segment pos
+	int cspi = 0;//current segment index pos
+
+	float* ts;
+	float max_len = 0;
+
+	int n_frames = stats->track[track]->n_frames;
+	int i;
+	int ns = 0;//num of segments
+	int* flags = stats->track[track]->flags;
+
+	ts = stats->track[track]->dts;
+	if (ts == 0){
+		ts = stats->track[track]->pts;
+	}
+
+	float* lts = stats->track[lead_track]->dts;
+	if (lts == 0){
+		lts = stats->track[lead_track]->pts;
+	}
+
+	*sf = 0;
+	for(i = 0; i < n_frames; ++i){
+		if (ts[i] < lts[nsf]){
+			*sf = i;
+		}
+	}
+
+	for(i = 0; i < n_frames; ++i){
+		if (ts[i] < lts[nef]){
+			*ef = i;
+		}
+	}
 
 	return *ef - *sf;
 }
