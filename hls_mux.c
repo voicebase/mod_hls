@@ -606,7 +606,7 @@ int select_current_track(media_stats_t* stats, media_data_t* data){
 
 
 		if (td->frames_written + td->first_frame < ts->n_frames && td->frames_written < td->n_frames){
-			if (pts[td->first_frame + td->frames_written] - pts[td->first_frame] < min_time){
+			if (pts[td->first_frame + td->frames_written] < min_time){
 				min_time = pts[td->first_frame + td->frames_written];
 				ct = i;
 			}
@@ -658,6 +658,11 @@ int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int
 		int ct = select_current_track(stats, data);
 		if (ct < 0)
 			break;
+
+		track_data_t* td = data->track_data[ct];
+		track_t* ts = stats->track[ct];
+
+		printf("track=%d, frame=%d, pts=%f\n", ct, td->first_frame + td->frames_written, ts->pts[td->first_frame + td->frames_written]);
 
 		if (ct == lead_track){
 			pos += put_pat(output_buffer + pos, stats, &pat_cc);
