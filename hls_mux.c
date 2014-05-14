@@ -662,8 +662,6 @@ int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int
 		track_data_t* td = data->track_data[ct];
 		track_t* ts = stats->track[ct];
 
-		printf("track=%d, frame=%d, pts=%f\n", ct, td->first_frame + td->frames_written, ts->pts[td->first_frame + td->frames_written]);
-
 		if (ct == lead_track){
 			pos += put_pat(output_buffer + pos, stats, &pat_cc);
 			pos += put_pmt(output_buffer + pos, stats, &pmt_cc, lead_track);
