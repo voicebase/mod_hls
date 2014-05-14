@@ -911,7 +911,7 @@ void get_video_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_tra
 	MP4_BOX* ctts=NULL;
 	ctts = find_box(video_trak, "ctts");
 	if(ctts==NULL) {
-		memcpy(pts,dts,nframes);
+		memcpy(pts,dts,nframes*sizeof(float));
 		return;
 	}
 	int ctts_entry_count=0;

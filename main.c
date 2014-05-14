@@ -31,6 +31,7 @@ char* get_pure_pathname(char* filename){
     char* str=(char*)malloc(sizeof(char)*(pos2+1));
     for(int bbb=0; bbb<=pos2; bbb++)
     	str[bbb]=filename[bbb];
+    str[pos2+1]=0;
     return str;
 }
 
@@ -661,7 +662,7 @@ int main (int argc, char* argv[]){
 
 	//Testing
 	argc=4;
-	argv[1]=("/home/bocharick/Work/testfiles/testfile2.mp4");
+	argv[1]=("/home/bocharick/Work/testfiles/testfile.mp4");
 	argv[2]=("/home/bocharick/Work/1/");
 	argv[3]=("/home/bocharick/Work/testfiles/logo.h264");
 
