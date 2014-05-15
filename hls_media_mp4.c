@@ -855,12 +855,16 @@ void get_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* audio_trak, int
 			delta[delta_counter]=sample_size;
 			delta_counter++;
 		}
+
 	}
 	pts[0]=0;
+	float real_pts=0;
 	DecoderSpecificInfo = (DecoderSpecificInfo>>7) & 15;
 	for(int i=1; i<nframes; i++) {
+		real_pts+=(float)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo];
 		//pts[i]=pts[i-1]+((float)1024/SamplingFrequencies[DecoderSpecificInfo]);
-		pts[i]=pts[i-1]+((float)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo]);
+		float cmpr=fabsf(((float)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo])-((float)1024/SamplingFrequencies[DecoderSpecificInfo]));
+		pts[i]=((cmpr<0.2) ? (pts[i-1]+(float)1024/SamplingFrequencies[DecoderSpecificInfo]):(real_pts));
 	}
 	free(delta);
 
