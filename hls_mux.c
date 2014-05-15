@@ -23,8 +23,8 @@
 #include <stdio.h>
 
 #define PID_PMT		0x0100
-#define PID_AUDIO	0x0102
-#define PID_VIDEO  0x0101
+#define PID_AUDIO	0x0101
+#define PID_VIDEO  0x0102
 #define PES_VIDEO_STREAM 0x1B
 #define PES_AUDIO_STREAM 0x04
 #define TRANSPORT_STREAM_ID 0x0001
@@ -651,8 +651,9 @@ int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int
 		pos += put_pat(output_buffer + pos, stats, &pat_cc);
 		pos += put_pmt(output_buffer + pos, stats, &pmt_cc, lead_track);
 
-		pos += put_data_frame(output_buffer + pos, stats, data, video_track, lead_track, 1);
-		//pos += put_data_frame(output_buffer + pos, stats, data, lead_track, lead_track, 0);
+		pos += put_data_frame(output_buffer + pos, stats, data, lead_track, lead_track, 0);
+		if (video_track != lead_track)
+			pos += put_data_frame(output_buffer + pos, stats, data, video_track, lead_track, 1);
 
 	}
 
