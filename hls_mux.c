@@ -132,7 +132,10 @@ static int generate_pes_header(char* out_buf, int out_buf_size, int data_size, d
 	put_bits(&bs, 24,0x0000001);// pes packet start code
 
 	put_bits(&bs, 8,	es_id);					// stream id
-	put_bits(&bs, 16,	data_size + 3 + pts_dts_length);	// pes packet length
+	if (es_id >= 0xE0)
+		put_bits(&bs, 16,	0);	// pes packet length
+	else
+		put_bits(&bs, 16,	data_size + 3 + pts_dts_length);	// pes packet length
 
 
 	put_bits(&bs, 2, 0x02);			// have to be '10b'
@@ -648,9 +651,9 @@ int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int
 		pos += put_pat(output_buffer + pos, stats, &pat_cc);
 		pos += put_pmt(output_buffer + pos, stats, &pmt_cc, lead_track);
 
-		pos += put_data_frame(output_buffer + pos, stats, data, lead_track, lead_track, 0);
-		if (lead_track != video_track)
-			pos += put_data_frame(output_buffer + pos, stats, data, video_track, lead_track, 1);
+		pos += put_data_frame(output_buffer + pos, stats, data, video_track, lead_track, 1);
+		//pos += put_data_frame(output_buffer + pos, stats, data, lead_track, lead_track, 0);
+
 	}
 
 	//put other frames
