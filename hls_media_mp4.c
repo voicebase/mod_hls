@@ -769,7 +769,7 @@ int get_count_of_traks(file_handle_t* mp4, file_source_t* source, MP4_BOX* root,
 	}
 	return trak_counter;
 }
-
+/*
 int get_count_of_audio_traks(file_handle_t* mp4, file_source_t* source, MP4_BOX* root, MP4_BOX*** moov_traks) {
 	MP4_BOX* moov;
 	*moov_traks = (MP4_BOX**) malloc (sizeof(MP4_BOX*)*2);
@@ -787,6 +787,7 @@ int get_count_of_audio_traks(file_handle_t* mp4, file_source_t* source, MP4_BOX*
 	}
 	return trak_counter;
 }
+*/
 
 int get_codec(file_handle_t* mp4, file_source_t* source, MP4_BOX* trak) {
 	MP4_BOX* stsd;
@@ -1118,13 +1119,13 @@ void convert_to_annexb(char* ptr, int NALlensize, int* frame_size, int* frame_of
 int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t* stats, int piece, media_data_t* output_buffer, int output_buffer_size) {
 
 	//OUTPUT TESTING
-	/*	FILE* mp4_sound;
+		FILE* mp4_sound;
 			mp4_sound=fopen("testfile.h264","ab");
 			if(mp4_sound==NULL) {
 				printf("\nCould'n create testfile.h264 file\n");
 				exit(1);
 			}
-	 */
+
 	//
 
 	MP4_BOX* root=mp4_looking(mp4,source);
@@ -1318,9 +1319,11 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 			//else {
 
 			//}
-
-			/*fwrite(track_data->buffer, track_data->buffer_size, 1, mp4_sound);
-			fclose(mp4_sound);*/
+				int qwe=0;
+				for(int kkk=0; kkk<track_data->n_frames; kkk++)
+					qwe+=track_data->size[kkk];
+			fwrite(track_data->buffer, qwe, 1, mp4_sound);
+			fclose(mp4_sound);
 		}
 		//OUTPUT TESTING
 		//fwrite(track_data->buffer, track_data->buffer_size, 1, mp4_sound);
