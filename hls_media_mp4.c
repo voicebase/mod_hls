@@ -858,13 +858,14 @@ void get_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* audio_trak, int
 
 	}
 	pts[0]=0;
-	float real_pts=0;
+	double real_pts=0;
+	double real_pts_minus_one=0;
 	DecoderSpecificInfo = (DecoderSpecificInfo>>7) & 15;
 	for(int i=1; i<nframes; i++) {
-		real_pts+=(float)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo];
-		//pts[i]=pts[i-1]+((float)1024/SamplingFrequencies[DecoderSpecificInfo]);
-		float cmpr=fabsf(((float)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo])-((float)1024/SamplingFrequencies[DecoderSpecificInfo]));
-		pts[i]=((cmpr<0.2) ? (pts[i-1]+(float)1024/SamplingFrequencies[DecoderSpecificInfo]):(real_pts));
+		real_pts=real_pts_minus_one+(double)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo];
+		float cmpr=fabsf(real_pts - (real_pts_minus_one+(double)1024/SamplingFrequencies[DecoderSpecificInfo]));
+		pts[i]=((cmpr<0.2) ? (real_pts_minus_one+(double)1024/SamplingFrequencies[DecoderSpecificInfo]):(real_pts));
+		real_pts_minus_one=real_pts;
 	}
 	free(delta);
 
@@ -921,8 +922,11 @@ void get_video_dts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_tra
 	source->read(mp4, &timescale, 4, mdhd->box_first_byte+12+need_to_skip, 0);
 	timescale=ntohl(timescale);
 	dts[0]=0;
+	double real_dts=0;
+//	real_pts+=(double)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo];
 	for(int i=1; i<nframes; i++) {
-		dts[i]=dts[i-1]+((float)delta[i-1]/timescale);
+		real_dts+=(double)delta[i-1]/timescale;
+		dts[i]=real_dts;
 	}
 	free(delta);
 }
@@ -978,8 +982,10 @@ void get_video_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_tra
 	source->read(mp4, &timescale, 4, mdhd->box_first_byte+12+need_to_skip, 0);
 	timescale=ntohl(timescale);
 	pts[0]=0;
+	double real_pts=0;
 	for(int i=0; i<nframes; i++) {
-		pts[i]=dts[i]+(float)delta[i]/timescale;
+		real_pts=dts[i]+(double)delta[i]/timescale;
+		pts[i]=real_pts;//dts[i]+(float)delta[i]/timescale;
 	}
 	free(delta);
 
@@ -1028,6 +1034,7 @@ int mp4_media_get_stats(file_handle_t* mp4, file_source_t* source, media_stats_t
 			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"vide"))
 				MediaStatsT+=(2*(sizeof(float)+sizeof(int))*get_nframes(mp4, source, moov_traks[i]));
 		}
+		free(moov_traks);
 		return MediaStatsT;
 	}
 
@@ -1089,8 +1096,16 @@ int mp4_media_get_stats(file_handle_t* mp4, file_source_t* source, media_stats_t
 		track->repeat_for_every_segment=0;
 		track->data_start_offset=0;
 		track->type=0;
-
 	}
+
+
+
+
+
+
+
+
+
 	free(moov_traks);
 	i_want_to_break_free(root);
 	return output_buffer_size;
@@ -1105,39 +1120,38 @@ void convert_to_annexb(char* ptr, int NALlensize, int* frame_size, int* frame_of
 		exit(1);
 	}
 	int j=0;
+	char nal_type=0;
 	for(int i=0; i<frame_size[index]; ) {
 		memcpy((char*)&nal_size+(4-NALlensize), ptr+i, NALlensize);
 		nal_size=ntohl(nal_size);
-		memcpy(temp_buffer+j, annexb, 4);
-		memcpy(temp_buffer+j+4, ptr+i+NALlensize, nal_size);
-		i+=nal_size+NALlensize;
-		j+=4+nal_size;
-		nal_size=0;
+		memcpy(&nal_type, ptr+i+NALlensize, 1);
+		nal_type&=31;
+		if(nal_type==7 || nal_type==8 || nal_type==9) {
+			i+=nal_size+NALlensize;
+			nal_size=0;
+		}
+		else {
+			memcpy(temp_buffer+j, annexb, 4);
+			memcpy(temp_buffer+j+4, ptr+i+NALlensize, nal_size);
+			i+=nal_size+NALlensize;
+			j+=4+nal_size;
+			nal_size=0;
+		}
 	}
-	frame_size[index]=j;
-	if(index!=0)
-		frame_offset[index]=frame_offset[index-1]+frame_size[index-1];
-	memcpy(ptr,temp_buffer, frame_size[index]);
+	frame_size[index]=j+6;
+//	if(index!=0)
+//		frame_offset[index+1]=frame_offset[index]+frame_size[index];
+	memcpy(ptr,temp_buffer, frame_size[index]-6);
 	free(temp_buffer);
 }
 
 int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t* stats, int piece, media_data_t* output_buffer, int output_buffer_size) {
 
-	//OUTPUT TESTING
-	/*	FILE* mp4_sound;
-			mp4_sound=fopen("testfile.h264","ab");
-			if(mp4_sound==NULL) {
-				printf("\nCould'n create testfile.h264 file\n");
-				exit(1);
-			}
-	*/
-	//
-
 	MP4_BOX* root=mp4_looking(mp4,source);
 	int MediaDataT=0;
 	MP4_BOX** moov_traks=NULL;
 	int n_tracks=get_count_of_traks(mp4, source, root, &moov_traks);
-	int lenght=5; // recommended_lenght for test
+	int lenght=get_segment_length(); // recommended_lenght for test
 
 	if(output_buffer==NULL) {
 		MediaDataT=sizeof(media_data_t)+sizeof(track_data_t)*n_tracks;
@@ -1162,6 +1176,7 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 			MediaDataT+=(sizeof(int/*int* size*/)+sizeof(int/*int* offset*/))*temp_nframes+sizeof(char/*char* buffer*/)*tmp_buffer_size;
 			free(stsz_data);
 		}
+		free(moov_traks);
 		return MediaDataT;
 	}
 
@@ -1254,11 +1269,11 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 				}
 			}
 		}
-		for (int z=0; z<stsc_entry_count; z++)
-			free(stsc_dat[z]);
+		for (int zvc=0; zvc<stsc_entry_count; zvc++)
+			free(stsc_dat[zvc]);
 		free(stsc_dat);
 		free(stco_dat);
-/*
+		/*
 	 	for (int kkk=0; kkk<30; kkk++) {
 			printf("\nmp4_sample_offset[%d] = %d",kkk, mp4_sample_offset[kkk]);
 		}
@@ -1296,45 +1311,85 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 			char* AVCDecInfo=NULL;
 			int avc_decinfo_size=0;
 			int NALlengthsize=0;
+			char AUD[6]={0,0,0,1,9,240}; // AUD for ios support
 			AVCDecInfo=get_AVCDecoderSpecificInfo(mp4, source, find_box(moov_traks[i],"stsd"), &avc_decinfo_size, &NALlengthsize);
 //			if(NALlengthsize==4) {
 				for (int z = track_data->first_frame; z < track_data->first_frame+track_data->n_frames; z++) {
 					if (z==track_data->first_frame) {
 						int nal_size=0;
+						for(int c=0; c<6; c++)
+							track_data->buffer[c]=AUD[c];
 						for(int m=0; m<avc_decinfo_size; m++)
-							track_data->buffer[m]=AVCDecInfo[m];
+							track_data->buffer[m+6]=AVCDecInfo[m]; //6 - AUD size;
 						track_data->size[z-track_data->first_frame]-=avc_decinfo_size;
-						source->read(mp4,(char*)track_data->buffer+avc_decinfo_size, track_data->size[z-track_data->first_frame],mp4_sample_offset[z],0);
+						source->read(mp4,(char*)track_data->buffer+avc_decinfo_size+6, track_data->size[z-track_data->first_frame],mp4_sample_offset[z],0);
 						//convert_to_annexb((char*)track_data->buffer+avc_decinfo_size, track_data->size[z-track_data->first_frame]-avc_decinfo_size, NALlengthsize);
-						convert_to_annexb((char*)track_data->buffer+avc_decinfo_size, NALlengthsize, track_data->size, track_data->offset, z-track_data->first_frame);
+						convert_to_annexb((char*)track_data->buffer+avc_decinfo_size+6, NALlengthsize, track_data->size, track_data->offset, z-track_data->first_frame);
 						track_data->size[z-track_data->first_frame]+=avc_decinfo_size;
-						//track_data->offset[z-track_data->first_frame+1]=avc_decinfo_size;
-						free(AVCDecInfo);
+						track_data->offset[z-track_data->first_frame+1]=track_data->size[z-track_data->first_frame];
+
 					}
 					else {
-						track_data->offset[z-track_data->first_frame]=track_data->offset[z-track_data->first_frame-1]+track_data->size[z-track_data->first_frame-1];
-						//source->read(mp4,(char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], mp4_sample_offset[z],0);
-						source->read(mp4,(char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], mp4_sample_offset[z],0);
-						//convert_to_annexb((char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], NALlengthsize);
-						convert_to_annexb((char*)track_data->buffer+track_data->offset[z-track_data->first_frame], NALlengthsize, track_data->size, track_data->offset, z-track_data->first_frame);
+						for(int c=0; c<6; c++)
+							track_data->buffer[track_data->offset[z-track_data->first_frame]+c]=AUD[c];
+						source->read(mp4,(char*)track_data->buffer+track_data->offset[z-track_data->first_frame]+6, track_data->size[z-track_data->first_frame], mp4_sample_offset[z],0);
+						convert_to_annexb((char*)track_data->buffer+track_data->offset[z-track_data->first_frame]+6, NALlengthsize, track_data->size, track_data->offset, z-track_data->first_frame);
+						if(z-track_data->first_frame+1 < track_data->n_frames)
+							track_data->offset[z-track_data->first_frame+1]=track_data->offset[z-track_data->first_frame]+track_data->size[z-track_data->first_frame];
 					}
 				}
+				free(AVCDecInfo);
 			//}
 			//else {
-
+				//OUTPUT TESTING
+				FILE* mp4_video;
+					mp4_video=fopen("testfile.h264","ab");
+					if(mp4_video==NULL) {
+						printf("\nCould'n create testfile.h264 file\n");
+						exit(1);
+					}
+				int qwe=0;
+				for(int kkk=0; kkk<track_data->n_frames; kkk++)
+							qwe+=track_data->size[kkk];
+				fwrite(track_data->buffer, qwe, 1, mp4_video);
+				fclose(mp4_video);
 			//}
 		}
-		//OUTPUT TESTING
-		/*int qwe=0;
-					for(int kkk=0; kkk<track_data->n_frames; kkk++)
-						qwe+=track_data->size[kkk];
-				fwrite(track_data->buffer, qwe, 1, mp4_sound);
-				fclose(mp4_sound);
-				*/
-		//fwrite(track_data->buffer, track_data->buffer_size, 1, mp4_sound);
-		//
+
+//		//OUTPUT TESTING
+//		int qwe=0;
+//		for(int kkk=0; kkk<track_data->n_frames; kkk++)
+//			qwe+=track_data->size[kkk];
+//		fwrite(track_data->buffer, qwe, 1, mp4_sound);
+//		fclose(mp4_sound);
+//
+//		fwrite(track_data->buffer, track_data->buffer_size, 1, mp4_sound);
+
 		free(stsz_data);
 		free(mp4_sample_offset);
+
+
+//		if(piece==300) {
+//			FILE* PTS;
+//			PTS=fopen("dts.txt","a");
+//
+//			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"vide")) {
+//				for(int l=0; l<stats->track[i]->n_frames; l++)
+//					//printf("\nVIDEO PTS = %f",stats->track[i]->pts[l]);
+//					fprintf(PTS,"\nVIDEO DTS[%d] = %f",l, stats->track[i]->dts[l]);
+//			}
+//			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"soun")) {
+//				for(int l=0; l<stats->track[i]->n_frames; l++)
+//					//printf("\nAUDIO PTS = %f",stats->track[i]->pts[l]);
+//					fprintf(PTS,"\nAUDIO DTS[%d] = %f",l, stats->track[i]->dts[l]);
+//			}
+//			fclose(PTS);
+//		}
+
+
+
+
+
 	}
 	free(moov_traks);
 	i_want_to_break_free(root);
