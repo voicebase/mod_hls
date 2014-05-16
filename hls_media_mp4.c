@@ -933,7 +933,7 @@ void get_video_dts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_tra
 //	real_pts+=(double)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo];
 	for(int i=1; i<nframes; i++) {
 		real_dts+=(double)delta[i-1]/timescale;
-		dts[i]=real_dts;
+		dts[i]=(float)real_dts;
 	}
 	free(delta);
 }
@@ -968,7 +968,10 @@ void get_video_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_tra
 		for(int k=0; k<sample_count; k++) {
 			delta[delta_counter]=sample_size;
 			delta_counter++;
+			printf("\nctts[%d] = %d",delta_counter, delta[delta_counter]);
+			fflush(stdout);
 		}
+
 	}
 	MP4_BOX* mdhd=NULL;
 	mdhd = find_box(video_trak, "mdhd");
@@ -988,11 +991,16 @@ void get_video_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_tra
 	int timescale=0;
 	source->read(mp4, &timescale, 4, mdhd->box_first_byte+12+need_to_skip, 0);
 	timescale=ntohl(timescale);
+	//
+	//printf("\nTimescale = %d",timescale);
+	//
+
+
 	pts[0]=0;
 	double real_pts=0;
 	for(int i=0; i<nframes; i++) {
 		real_pts=dts[i]+(double)delta[i]/timescale;
-		pts[i]=real_pts;//dts[i]+(float)delta[i]/timescale;
+		pts[i]=(float)real_pts;//dts[i]+(float)delta[i]/timescale;
 	}
 	free(delta);
 
@@ -1366,19 +1374,19 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 		free(mp4_sample_offset);
 
 
-//		if(piece==300) {
+//		if(piece==3) {
 //			FILE* PTS;
-//			PTS=fopen("dts.txt","a");
+//			PTS=fopen("pts.txt","a");
 //
 //			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"vide")) {
 //				for(int l=0; l<stats->track[i]->n_frames; l++)
 //					//printf("\nVIDEO PTS = %f",stats->track[i]->pts[l]);
-//					fprintf(PTS,"\nVIDEO DTS[%d] = %f",l, stats->track[i]->dts[l]);
+//					fprintf(PTS,"\nVIDEO PTS[%d] = %f",l, stats->track[i]->pts[l]);
 //			}
 //			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"soun")) {
 //				for(int l=0; l<stats->track[i]->n_frames; l++)
 //					//printf("\nAUDIO PTS = %f",stats->track[i]->pts[l]);
-//					fprintf(PTS,"\nAUDIO DTS[%d] = %f",l, stats->track[i]->dts[l]);
+//					fprintf(PTS,"\nAUDIO PTS[%d] = %f",l, stats->track[i]->pts[l]);
 //			}
 //			fclose(PTS);
 //		}
