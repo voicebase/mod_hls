@@ -662,7 +662,7 @@ int main (int argc, char* argv[]){
 
 	//Testing
 	argc=4;
-	argv[1]=("/home/bocharick/Work/testfiles/testfile.mp4");
+	argv[1]=("/home/bocharick/Work/testfiles/testfile2.mp4");
 	argv[2]=("/home/bocharick/Work/1/");
 	argv[3]=("/home/bocharick/Work/testfiles/logo.h264");
 

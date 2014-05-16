@@ -1091,6 +1091,7 @@ int mp4_media_get_stats(file_handle_t* mp4, file_source_t* source, media_stats_t
 		track->type=0;
 
 	}
+	free(moov_traks);
 	i_want_to_break_free(root);
 	return output_buffer_size;
 }
@@ -1123,13 +1124,13 @@ void convert_to_annexb(char* ptr, int NALlensize, int* frame_size, int* frame_of
 int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t* stats, int piece, media_data_t* output_buffer, int output_buffer_size) {
 
 	//OUTPUT TESTING
-		FILE* mp4_sound;
+	/*	FILE* mp4_sound;
 			mp4_sound=fopen("testfile.h264","ab");
 			if(mp4_sound==NULL) {
 				printf("\nCould'n create testfile.h264 file\n");
 				exit(1);
 			}
-
+	*/
 	//
 
 	MP4_BOX* root=mp4_looking(mp4,source);
@@ -1213,19 +1214,14 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 		track_data->data_start_offset=0;
 		track_data->cc=0;
 
-		MP4_BOX* find_stsc;
-		MP4_BOX* find_stco;
-		MP4_BOX* find_stsz;
-		MP4_BOX* find_stsd;
-
-		find_stsc=(find_box(moov_traks[i], "stsc"));
-		find_stco=(find_box(moov_traks[i], "stco"));
-		find_stsz=(find_box(moov_traks[i], "stsz"));
-		find_stsd=(find_box(moov_traks[i], "stsd"));
+		MP4_BOX* find_stsc=(find_box(moov_traks[i], "stsc"));
+		MP4_BOX* find_stco=(find_box(moov_traks[i], "stco"));
+		//MP4_BOX* find_stsz=(find_box(moov_traks[i], "stsz"));
+		MP4_BOX* find_stsd=(find_box(moov_traks[i], "stsd"));
 
 		int stsc_entry_count=0;
 		int stco_entry_count=0;
-		int stsz_entry_count=0;
+		int stsz_entry_count=tmp_sample_count;
 
 		sample_to_chunk** stsc_dat;
 		stsc_dat = read_stsc(mp4, source, find_stsc, &stsc_entry_count);
@@ -1233,8 +1229,8 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 		int* stco_dat;
 		stco_dat = read_stco(mp4, source, find_stco, &stco_entry_count);
 
-		int* stsz_dat;
-		stsz_dat = read_stsz(mp4, source, find_stsz, &stsz_entry_count);
+		//int* stsz_dat;
+		//stsz_dat = stsz_data;//read_stsz(mp4, source, find_stsz, &stsz_entry_count);
 
 		int* mp4_sample_offset;
 		mp4_sample_offset = (int*) malloc (sizeof(int)*stsz_entry_count);
@@ -1252,12 +1248,16 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 						mp4_sample_offset_counter++;
 					}
 					else {
-					mp4_sample_offset[mp4_sample_offset_counter]=mp4_sample_offset[mp4_sample_offset_counter-1]+stsz_dat[mp4_sample_offset_counter-1];
+					mp4_sample_offset[mp4_sample_offset_counter]=mp4_sample_offset[mp4_sample_offset_counter-1]+stsz_data[mp4_sample_offset_counter-1];
 					mp4_sample_offset_counter++;
 					}
 				}
 			}
 		}
+		for (int z=0; z<stsc_entry_count; z++)
+			free(stsc_dat[z]);
+		free(stsc_dat);
+		free(stco_dat);
 /*
 	 	for (int kkk=0; kkk<30; kkk++) {
 			printf("\nmp4_sample_offset[%d] = %d",kkk, mp4_sample_offset[kkk]);
@@ -1313,28 +1313,30 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 					}
 					else {
 						track_data->offset[z-track_data->first_frame]=track_data->offset[z-track_data->first_frame-1]+track_data->size[z-track_data->first_frame-1];
-	//source->read(mp4,(char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], mp4_sample_offset[z],0);
-	source->read(mp4,(char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], mp4_sample_offset[z],0);
-	//convert_to_annexb((char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], NALlengthsize);
-	convert_to_annexb((char*)track_data->buffer+track_data->offset[z-track_data->first_frame], NALlengthsize, track_data->size, track_data->offset, z-track_data->first_frame);
+						//source->read(mp4,(char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], mp4_sample_offset[z],0);
+						source->read(mp4,(char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], mp4_sample_offset[z],0);
+						//convert_to_annexb((char*)track_data->buffer+track_data->offset[z-track_data->first_frame], track_data->size[z-track_data->first_frame], NALlengthsize);
+						convert_to_annexb((char*)track_data->buffer+track_data->offset[z-track_data->first_frame], NALlengthsize, track_data->size, track_data->offset, z-track_data->first_frame);
 					}
 				}
 			//}
 			//else {
 
 			//}
-				int qwe=0;
-				for(int kkk=0; kkk<track_data->n_frames; kkk++)
-					qwe+=track_data->size[kkk];
-			fwrite(track_data->buffer, qwe, 1, mp4_sound);
-			fclose(mp4_sound);
 		}
 		//OUTPUT TESTING
+		/*int qwe=0;
+					for(int kkk=0; kkk<track_data->n_frames; kkk++)
+						qwe+=track_data->size[kkk];
+				fwrite(track_data->buffer, qwe, 1, mp4_sound);
+				fclose(mp4_sound);
+				*/
 		//fwrite(track_data->buffer, track_data->buffer_size, 1, mp4_sound);
 		//
-
+		free(stsz_data);
 		free(mp4_sample_offset);
 	}
+	free(moov_traks);
 	i_want_to_break_free(root);
 	return output_buffer_size;
 }
