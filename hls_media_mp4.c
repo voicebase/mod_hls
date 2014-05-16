@@ -860,11 +860,18 @@ void get_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* audio_trak, int
 	pts[0]=0;
 	double real_pts=0;
 	double real_pts_minus_one=0;
+	double tmp=0;
 	DecoderSpecificInfo = (DecoderSpecificInfo>>7) & 15;
 	for(int i=1; i<nframes; i++) {
+//		pts[i]=pts[i-1]+(float)1024/SamplingFrequencies[DecoderSpecificInfo];
 		real_pts=real_pts_minus_one+(double)delta[i-1]/SamplingFrequencies[DecoderSpecificInfo];
 		float cmpr=fabsf(real_pts - (real_pts_minus_one+(double)1024/SamplingFrequencies[DecoderSpecificInfo]));
-		pts[i]=((cmpr<0.2) ? (real_pts_minus_one+(double)1024/SamplingFrequencies[DecoderSpecificInfo]):(real_pts));
+//		if(cmpr>0.2) {
+//			printf("\ncmpr[%d] = %f",i,cmpr);
+//			fflush(stdout);
+//		}
+		tmp=(cmpr<0.2) ? (tmp+(double)1024/SamplingFrequencies[DecoderSpecificInfo]) : (real_pts);
+		pts[i]=tmp;
 		real_pts_minus_one=real_pts;
 	}
 	free(delta);
@@ -1097,15 +1104,6 @@ int mp4_media_get_stats(file_handle_t* mp4, file_source_t* source, media_stats_t
 		track->data_start_offset=0;
 		track->type=0;
 	}
-
-
-
-
-
-
-
-
-
 	free(moov_traks);
 	i_want_to_break_free(root);
 	return output_buffer_size;
@@ -1339,21 +1337,20 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 					}
 				}
 				free(AVCDecInfo);
-			//}
-			//else {
-				//OUTPUT TESTING
-				FILE* mp4_video;
-					mp4_video=fopen("testfile.h264","ab");
-					if(mp4_video==NULL) {
-						printf("\nCould'n create testfile.h264 file\n");
-						exit(1);
-					}
-				int qwe=0;
-				for(int kkk=0; kkk<track_data->n_frames; kkk++)
-							qwe+=track_data->size[kkk];
-				fwrite(track_data->buffer, qwe, 1, mp4_video);
-				fclose(mp4_video);
-			//}
+
+//			//OUTPUT TESTING
+//				FILE* mp4_video;
+//					mp4_video=fopen("testfile.h264","ab");
+//					if(mp4_video==NULL) {
+//						printf("\nCould'n create testfile.h264 file\n");
+//						exit(1);
+//					}
+//				int qwe=0;
+//				for(int kkk=0; kkk<track_data->n_frames; kkk++)
+//							qwe+=track_data->size[kkk];
+//				fwrite(track_data->buffer, qwe, 1, mp4_video);
+//				fclose(mp4_video);
+
 		}
 
 //		//OUTPUT TESTING
