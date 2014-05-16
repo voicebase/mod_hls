@@ -651,9 +651,9 @@ int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int
 		pos += put_pat(output_buffer + pos, stats, &pat_cc);
 		pos += put_pmt(output_buffer + pos, stats, &pmt_cc, lead_track);
 
-		pos += put_data_frame(output_buffer + pos, stats, data, lead_track, lead_track, 0);
-		if (video_track != lead_track)
-			pos += put_data_frame(output_buffer + pos, stats, data, video_track, lead_track, 1);
+		pos += put_data_frame(output_buffer + pos, stats, data, lead_track, lead_track, 1);
+//		if (video_track != lead_track)
+//			pos += put_data_frame(output_buffer + pos, stats, data, video_track, lead_track, 1);
 
 	}
 
@@ -663,13 +663,13 @@ int mux_to_ts(media_stats_t* stats, media_data_t* data, char* output_buffer, int
 		if (ct < 0)
 			break;
 
-		track_data_t* td = data->track_data[ct];
-		track_t* ts = stats->track[ct];
+//		track_data_t* td = data->track_data[ct];
+//		track_t* ts = stats->track[ct];
 
-		if (ct == lead_track){
-			pos += put_pat(output_buffer + pos, stats, &pat_cc);
-			pos += put_pmt(output_buffer + pos, stats, &pmt_cc, lead_track);
-		}
+//		if (ct == lead_track){
+//			pos += put_pat(output_buffer + pos, stats, &pat_cc);
+//			pos += put_pmt(output_buffer + pos, stats, &pmt_cc, lead_track);
+//		}
 
 		pos += put_data_frame(output_buffer + pos, stats, data, ct, lead_track, ct != video_track ? 6 : 1);
 	}
