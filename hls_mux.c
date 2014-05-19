@@ -122,12 +122,20 @@ static int generate_ts_header(char* out_buf, int out_buf_size, int cont_count, i
 }
 
 
-static int generate_pes_header(char* out_buf, int out_buf_size, int data_size, double fpts, int es_id){
+static int generate_pes_header(char* out_buf, int out_buf_size, int data_size, double fpts, double fdts, int es_id){
 	PutBitContext bs;
 
 	init_put_bits(&bs, out_buf, out_buf_size);
 	int pts_dts_length = 5;
 	long long pts;
+	long long dts;
+
+	pts = (fpts + 0.300) * 90000LL;
+	dts = (fdts + 0.300) * 90000LL;
+
+	if (abs(pts-dts) > 10)
+		pts_dts_length += 5;
+
 	//pes packet start
 	put_bits(&bs, 24,0x0000001);// pes packet start code
 
@@ -144,7 +152,12 @@ static int generate_pes_header(char* out_buf, int out_buf_size, int data_size, d
 	put_bits(&bs, 1, 0x01);			// data alignment
 	put_bits(&bs, 1, 0x00);			// copyright
 	put_bits(&bs, 1, 0x00);			// original or copy
-	put_bits(&bs, 2, 0x02);			// pts/dts flags we have only pts
+
+	if (pts_dts_length > 5){
+		put_bits(&bs, 2, 0x03);			// pts/dts flags we have only pts
+	}else{
+		put_bits(&bs, 2, 0x02);
+	}
 	put_bits(&bs, 1, 0x00);			// escr flag
 	put_bits(&bs, 1, 0x00);			// es rate flag
 	put_bits(&bs, 1, 0x00);			// dsm trick mode flag
@@ -153,14 +166,35 @@ static int generate_pes_header(char* out_buf, int out_buf_size, int data_size, d
 	put_bits(&bs, 1, 0x00);			// pes extention flag
 	put_bits(&bs, 8, pts_dts_length);			// pes headder data length
 
-	pts = (fpts + 0.300) * 90000LL;
-	put_bits(&bs, 4,  0x02);// have to be '0010b'
-	put_bits(&bs, 3,  (pts >> 30) & 0x7);// pts[32..30]
-	put_bits(&bs, 1,  0x01);// marker bit
-	put_bits(&bs, 15, (pts >> 15) & 0x7FFF);// pts[29..15]
-	put_bits(&bs, 1,  0x01);// marker bit
-	put_bits(&bs, 15, pts & 0x7FFF);// pts[14..0]
-	put_bits(&bs, 1,  0x01);// marker bit
+	if (pts_dts_length > 5){
+		put_bits(&bs, 4,  0x03);// have to be '0011b'
+		put_bits(&bs, 3,  (pts >> 30) & 0x7);// pts[32..30]
+		put_bits(&bs, 1,  0x01);// marker bit
+		put_bits(&bs, 15, (pts >> 15) & 0x7FFF);// pts[29..15]
+		put_bits(&bs, 1,  0x01);// marker bit
+		put_bits(&bs, 15, pts & 0x7FFF);// pts[14..0]
+		put_bits(&bs, 1,  0x01);// marker bit
+
+		put_bits(&bs, 4,  0x01);// have to be '0011b'
+		put_bits(&bs, 3,  (dts >> 30) & 0x7);// pts[32..30]
+		put_bits(&bs, 1,  0x01);// marker bit
+		put_bits(&bs, 15, (dts >> 15) & 0x7FFF);// pts[29..15]
+		put_bits(&bs, 1,  0x01);// marker bit
+		put_bits(&bs, 15, dts & 0x7FFF);// pts[14..0]
+		put_bits(&bs, 1,  0x01);// marker bit
+
+	}else{
+		put_bits(&bs, 4,  0x02);// have to be '0010b'
+
+		put_bits(&bs, 3,  (pts >> 30) & 0x7);// pts[32..30]
+		put_bits(&bs, 1,  0x01);// marker bit
+		put_bits(&bs, 15, (pts >> 15) & 0x7FFF);// pts[29..15]
+		put_bits(&bs, 1,  0x01);// marker bit
+		put_bits(&bs, 15, pts & 0x7FFF);// pts[14..0]
+		put_bits(&bs, 1,  0x01);// marker bit
+	}
+
+
 	flush_put_bits(&bs);
 	return put_bits_count(&bs)/8;
 
@@ -174,7 +208,7 @@ void pack_pcr(char* ts_buf, int* frame_count, int* cc, double start_time, int pi
 	++cc[0];
 }
 
-void pack_data(char* ts_buf, int* frame_count, int* cc, double start_time, int es_id, int pid, char* data, int frame_size, int pcr_pid){
+void pack_data(char* ts_buf, int* frame_count, int* cc, double pts, double dts, int es_id, int pid, char* data, int frame_size, int pcr_pid){
 	char pes_header_buffer[128];
 	char ts_header_buffer[188];
 
@@ -182,13 +216,13 @@ void pack_data(char* ts_buf, int* frame_count, int* cc, double start_time, int e
 	int ts_header_size;
 	int pos = 0;
 	if (frame_size > 0){
-		pes_header_size = generate_pes_header(pes_header_buffer, sizeof(pes_header_buffer), frame_size, start_time, es_id);
+		pes_header_size = generate_pes_header(pes_header_buffer, sizeof(pes_header_buffer), frame_size, pts, dts, es_id);
 	}
 	pos = 0;
 
 	if ( pcr_pid){
 		ts_header_size = generate_ts_header(ts_header_buffer, sizeof(ts_header_buffer), cc[0], 1,
-												1, start_time, pid, 0, frame_size + pes_header_size);
+												1, dts, pid, 0, frame_size + pes_header_size);
 	}else{
 		ts_header_size = generate_ts_header(ts_header_buffer, sizeof(ts_header_buffer), cc[0], 1,
 												0, 0, pid, 0, frame_size + pes_header_size);
@@ -563,6 +597,7 @@ int put_data_frame(char* buf, media_stats_t* stats, media_data_t* data, int trac
 	int data_buf_size = 0;
 	int i;
 	double pts;
+	double dts;
 
 	for(i = 0; i < num_of_frames && ((i + fn) < data->track_data[track]->n_frames); ++i){
 		data_buf_size += data->track_data[track]->size[fn + i];
@@ -574,11 +609,14 @@ int put_data_frame(char* buf, media_stats_t* stats, media_data_t* data, int trac
 		es_id = 0xE0;
 
 	pts = stats->track[track]->pts[first_frame + fn];
+	dts = stats->track[track]->dts[first_frame + fn];
 
-	if (stats->track[track]->repeat_for_every_segment)
+	if (stats->track[track]->repeat_for_every_segment){
 		pts += stats->track[lead_track]->pts[data->track_data[lead_track]->first_frame];
+		dts += stats->track[lead_track]->dts[data->track_data[lead_track]->first_frame];
+	}
 
-	pack_data(buf, &fc, &data->track_data[track]->cc, pts, es_id, PID_PMT + stats->n_tracks - track,
+	pack_data(buf, &fc, &data->track_data[track]->cc, pts, dts, es_id, PID_PMT + stats->n_tracks - track,
 			data_buf,data_buf_size, track == lead_track ? 1 : 0);
 
 	data->track_data[track]->frames_written += num_of_frames;
