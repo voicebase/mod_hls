@@ -106,7 +106,7 @@ int parse_mp3_header_buffer(unsigned char* data, int buffer_size, int* sample_ra
 int parse_video_file(char *filename, int* n_video_frames);
 int load_data_from_file(char* buf, int size, char* filename);
 
-int mp3_media_get_stats(file_handle_t* handle, file_source_t* source, media_stats_t* output_buffer, int output_buffer_size ){
+int mp3_media_get_stats(void* context, file_handle_t* handle, file_source_t* source, media_stats_t* output_buffer, int output_buffer_size ){
 	char buf[16384];
 	int sample_rate;
 	int num_of_channels;
@@ -215,7 +215,7 @@ int mp3_media_get_stats(file_handle_t* handle, file_source_t* source, media_stat
 	return sizeof(media_stats_t) + sizeof(track_t) * 2 + n_frames * (sizeof(float) + sizeof(int)) + n_video_frames * (sizeof(float) + sizeof(int));// return number of bytes
 }
 
-int mp3_media_get_data(file_handle_t* handle, file_source_t* source, media_stats_t* stats, int piece, media_data_t* output_buffer, int output_buffer_size ){
+int mp3_media_get_data(void* context, file_handle_t* handle, file_source_t* source, media_stats_t* stats, int piece, media_data_t* output_buffer, int output_buffer_size ){
 	int start=0;
 	int stop=0;
 	int n_frames;

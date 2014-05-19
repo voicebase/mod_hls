@@ -1,3 +1,18 @@
+/*
+ * Implementation of mp3 media
+ * Copyright (c) 2012-2013 Voicebase Inc.
+ *
+ * Authors: Alexander Ustinov, Pomazan Nikolay
+ * email: alexander@voicebase.com, pomazannn@gmail.com
+ *
+ * This file is the part of the mod_hls apache module
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU Lesser General Public License version 3. See the LICENSE file
+ * at the top of the source tree.
+ *
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -68,7 +83,7 @@ void generate_playlist_test(char* filename, char* playlist, int* numberofchunks)
 	if ( !source->open(source, handle, filename, FIRST_ACCESS) )
 		return ;
 
-	stats_size 			= media->get_media_stats(handle, source, NULL, 0);
+	stats_size 			= media->get_media_stats(NULL, handle, source, NULL, 0);
 	stats_buffer		= (char*)malloc(stats_size);
 
 	if ( !stats_buffer ){
@@ -76,7 +91,7 @@ void generate_playlist_test(char* filename, char* playlist, int* numberofchunks)
 		return ;
 	}
 
-	stats_size 				= media->get_media_stats(handle, source, stats_buffer, stats_size);
+	stats_size 				= media->get_media_stats(NULL, handle, source, stats_buffer, stats_size);
 
 	pure_filename = get_pure_filename(filename); //get only filename without any directory info
 
@@ -153,7 +168,7 @@ void generate_piece(char* filename, char* out_filename, int piece){
 	if ( !source->open(source, handle, filename, FIRST_ACCESS) )
 		return ;
 
-	stats_size 			= media->get_media_stats(handle, source, NULL, 0);
+	stats_size 			= media->get_media_stats(NULL, handle, source, NULL, 0);
 	if ( stats_size <= 0){
 		source->close(handle, 0);
 		return ;
@@ -165,13 +180,13 @@ void generate_piece(char* filename, char* out_filename, int piece){
 		return ;
 	}
 
-	stats_size 				= media->get_media_stats(handle, source, stats_buffer, stats_size);
+	stats_size 				= media->get_media_stats(NULL, handle, source, stats_buffer, stats_size);
 	if ( stats_size <= 0){
 		source->close(handle, 0);
 		return ;
 	}
 
-	data_size 			= media->get_media_data(handle, source, stats_buffer, piece, NULL, 0);
+	data_size 			= media->get_media_data(NULL, handle, source, stats_buffer, piece, NULL, 0);
 	if (data_size <= 0){
 		source->close(handle, 0);
 		return ;
@@ -183,7 +198,7 @@ void generate_piece(char* filename, char* out_filename, int piece){
 		return ;
 	}
 
-	data_size 			= media->get_media_data(handle, source, stats_buffer, piece, data_buffer, data_size);
+	data_size 			= media->get_media_data(NULL, handle, source, stats_buffer, piece, data_buffer, data_size);
 	if (data_size <= 0){
 		source->close(handle, 0);
 		return ;
@@ -662,7 +677,7 @@ int main (int argc, char* argv[]){
 
 	//Testing
 	argc=4;
-	argv[1]=("/home/bocharick/Work/testfiles/testfile2.mp4");
+	argv[1]=("/home/bocharick/Work/testfiles/testfile5.mp4");
 	argv[2]=("/home/bocharick/Work/1/");
 	argv[3]=("/home/bocharick/Work/testfiles/logo.h264");
 
@@ -699,7 +714,7 @@ int main (int argc, char* argv[]){
 	set_allow_wav(1);
 	set_allow_mp3(1);
 	set_encode_audio_codec(1);
-	set_segment_length(5);
+	set_segment_length(10);
 	set_logo_filename(argv[3]);
 	//set_logo_filename(NULL);
 

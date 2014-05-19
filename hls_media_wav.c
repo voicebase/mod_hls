@@ -1,9 +1,9 @@
 /*
- * Implementation of wav media
+ * Implementation of mp3 media
  * Copyright (c) 2012-2013 Voicebase Inc.
  *
- * Author: Alexander Ustinov
- * email: alexander@voicebase.com
+ * Authors: Alexander Ustinov, Pomazan Nikolay
+ * email: alexander@voicebase.com, pomazannn@gmail.com
  *
  * This file is the part of the mod_hls apache module
  *
@@ -249,7 +249,7 @@ int load_data_from_file(char* buf, int size, char* filename){
 	return size;
 }
 
-int wav_media_get_stats(file_handle_t* handle, file_source_t* source, media_stats_t* output_buffer, int output_buffer_size ){
+int wav_media_get_stats(void* context, file_handle_t* handle, file_source_t* source, media_stats_t* output_buffer, int output_buffer_size ){
 	char buf[4096];
 	int sample_rate;
 	int num_of_channels;
@@ -351,7 +351,7 @@ int decode_wave(char* raw_wave_data, int in_samples, char* frame_data, int sampl
 	return convert_sample_rate(frame_data, encoding_sample_rate * n_ch * bit_per_sample / 8, raw_wave_data, in_samples * n_ch * 2, sample_rate, encoding_sample_rate, n_ch, bit_per_sample, in_samples, type);
 }
 
-int wav_media_get_data(file_handle_t* handle, file_source_t* source, media_stats_t* stats, int piece, media_data_t* output_buffer, int output_buffer_size ){
+int wav_media_get_data(void* context, file_handle_t* handle, file_source_t* source, media_stats_t* stats, int piece, media_data_t* output_buffer, int output_buffer_size ){
 	int start;
 	int stop;
 	int n_frames;
