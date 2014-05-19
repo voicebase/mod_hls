@@ -967,12 +967,14 @@ void get_video_pts(file_handle_t* mp4, file_source_t* source, MP4_BOX* video_tra
 		sample_size=ntohl(sample_size);
 		for(int k=0; k<sample_count; k++) {
 			delta[delta_counter]=sample_size;
+			//printf("\nctts[%d] = %d",delta_counter, delta[delta_counter]);
+			//fflush(stdout);
 			delta_counter++;
-			printf("\nctts[%d] = %d",delta_counter, delta[delta_counter]);
-			fflush(stdout);
 		}
-
 	}
+	////////////////
+	//printf("\nDelta counter (ctts sample counter) = %d",delta_counter);
+	///////////////
 	MP4_BOX* mdhd=NULL;
 	mdhd = find_box(video_trak, "mdhd");
 	int mdhd_version=0;
@@ -1373,7 +1375,7 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 		free(stsz_data);
 		free(mp4_sample_offset);
 
-
+//		///PTS
 //		if(piece==3) {
 //			FILE* PTS;
 //			PTS=fopen("pts.txt","a");
@@ -1389,6 +1391,25 @@ int mp4_media_get_data(file_handle_t* mp4, file_source_t* source, media_stats_t*
 //					fprintf(PTS,"\nAUDIO PTS[%d] = %f",l, stats->track[i]->pts[l]);
 //			}
 //			fclose(PTS);
+//		}
+
+
+//		/////DTS
+//		if(piece==3) {
+//			FILE* DTS;
+//			DTS=fopen("dts.txt","a");
+//
+//			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"vide")) {
+//				for(int l=0; l<stats->track[i]->n_frames; l++)
+//					//printf("\nVIDEO PTS = %f",stats->track[i]->pts[l]);
+//					fprintf(DTS,"\nVIDEO DTS[%d] = %f",l, stats->track[i]->dts[l]);
+//			}
+//			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"soun")) {
+//				for(int l=0; l<stats->track[i]->n_frames; l++)
+//					//printf("\nAUDIO PTS = %f",stats->track[i]->pts[l]);
+//					fprintf(DTS,"\nAUDIO DTS[%d] = %f",l, stats->track[i]->dts[l]);
+//			}
+//			fclose(DTS);
 //		}
 
 
