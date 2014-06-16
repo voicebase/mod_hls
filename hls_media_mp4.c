@@ -24,6 +24,16 @@
 //#define HLS_PLUGIN
 
 #ifdef HLS_PLUGIN
+#include "httpd.h"
+#include "http_config.h"
+#include "http_core.h"
+#include "http_log.h"
+#include "http_main.h"
+#include "http_protocol.h"
+#include "http_request.h"
+#include "util_script.h"
+#include "http_connection.h"
+#include "util_script.h"
 #define HLS_MALLOC(X,Y) apr_pcalloc(X,Y)
 #define HLS_FREE(X)
 
@@ -1051,19 +1061,30 @@ void get_samplerate_and_nch(int DecoderSpecificInfo, int* sample_rate, int* n_ch
 }
 
 int mp4_media_get_stats(void* context, file_handle_t* mp4, file_source_t* source, media_stats_t* m_stat_ptr, int output_buffer_size) {
-	MP4_BOX* root=mp4_looking(context, mp4,source);
+
+#ifdef HLS_PLUGIN
+	request_rec* rec_rec=context;
+	apr_pool_t* pool=rec_rec->pool;
+#else
+	void* pool=context;
+#endif
+
+
+	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), rec_rec->server, "we are here");
+
+	MP4_BOX* root=mp4_looking(pool, mp4,source);
 	int MediaStatsT=0;
 	MP4_BOX** moov_traks=NULL;
-	int n_tracks=get_count_of_traks(context, mp4, source, root, &moov_traks);
+	int n_tracks=get_count_of_traks(pool, mp4, source, root, &moov_traks);
 	track_t* track;
 
 	if (m_stat_ptr==NULL) {
 		MediaStatsT=sizeof(media_stats_t)+sizeof(track_t)*n_tracks;
 		for (int i=0; i<n_tracks; i++) {
 			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"soun"))
-				MediaStatsT+=((sizeof(float)+sizeof(int))*get_nframes(context, mp4, source, moov_traks[i]));
+				MediaStatsT+=((sizeof(float)+sizeof(int))*get_nframes(pool, mp4, source, moov_traks[i]));
 			if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"vide"))
-				MediaStatsT+=(2*(sizeof(float)+sizeof(int))*get_nframes(context, mp4, source, moov_traks[i]));
+				MediaStatsT+=(2*(sizeof(float)+sizeof(int))*get_nframes(pool, mp4, source, moov_traks[i]));
 		}
 		HLS_FREE(moov_traks);
 		return MediaStatsT;
@@ -1081,7 +1102,7 @@ int mp4_media_get_stats(void* context, file_handle_t* mp4, file_source_t* source
 		}
 		track=m_stat_ptr->track[i];
 		track->codec=get_codec(mp4, source, moov_traks[i]);
-		track->n_frames=get_nframes(context, mp4, source, moov_traks[i]);
+		track->n_frames=get_nframes(pool, mp4, source, moov_traks[i]);
 		track->bitrate=0;
 		if(handlerType(mp4, source, find_box(moov_traks[i],"hdlr"),"soun")) {
 			track->pts=(char*)track+sizeof(track_t);
@@ -1089,7 +1110,7 @@ int mp4_media_get_stats(void* context, file_handle_t* mp4, file_source_t* source
 			track->flags=(char*)track->pts+sizeof(float)*track->n_frames;
 			for(int z=0; z<track->n_frames; z++)
 				track->flags[z]=1;
-			get_pts(context, mp4, source, moov_traks[i],track->n_frames,get_DecoderSpecificInfo(mp4, source, find_box(moov_traks[i],"stsd")),track->pts);
+			get_pts(pool, mp4, source, moov_traks[i],track->n_frames,get_DecoderSpecificInfo(mp4, source, find_box(moov_traks[i],"stsd")),track->pts);
 			get_samplerate_and_nch(get_DecoderSpecificInfo(mp4,source,find_box(moov_traks[i],"stsd")), &track->sample_rate, &track->n_ch);
 			track->sample_size=16;
 			//PTS Test PRINTF
@@ -1104,13 +1125,13 @@ int mp4_media_get_stats(void* context, file_handle_t* mp4, file_source_t* source
 			track->pts=(char*)track+sizeof(track_t);
 			track->dts=(char*)track->pts+sizeof(float)*track->n_frames;
 			track->flags=(char*)track->dts+sizeof(float)*track->n_frames;
-			get_video_dts(context, mp4, source, moov_traks[i], track->n_frames, track->dts);
-			get_video_pts(context, mp4, source, moov_traks[i], track->n_frames, track->pts, track->dts);
+			get_video_dts(pool, mp4, source, moov_traks[i], track->n_frames, track->dts);
+			get_video_pts(pool, mp4, source, moov_traks[i], track->n_frames, track->pts, track->dts);
 			for(int z=0; z<track->n_frames; z++)
 				track->flags[z]=0;
 			int stss_entry_count=0;
 			int* stss=NULL;
-			stss=get_stss(context, mp4, source, moov_traks[i], &stss_entry_count);
+			stss=get_stss(pool, mp4, source, moov_traks[i], &stss_entry_count);
 			for(int i=0; i<stss_entry_count; i++)
 				track->flags[stss[i]-1]=1;
 			track->n_ch=0;

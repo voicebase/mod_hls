@@ -96,14 +96,14 @@ void generate_playlist_test(char* filename, char* playlist, int* numberofchunks)
 	pure_filename = get_pure_filename(filename); //get only filename without any directory info
 
 	if (pure_filename){
-		int playlist_size 		= generate_playlist(stats_buffer, pure_filename, NULL, 0, NULL, &numberofchunks);
+		int playlist_size 		= generate_playlist(stats_buffer, pure_filename, NULL, 0, NULL, numberofchunks);
 		char* playlist_buffer 	= (char*)malloc( playlist_size);
 		if ( !playlist_buffer ){
 			source->close(handle, 0);
 			return;
 		}
 
-		playlist_size 			= generate_playlist(stats_buffer, pure_filename, playlist_buffer, playlist_size, NULL, &numberofchunks);
+		playlist_size 			= generate_playlist(stats_buffer, pure_filename, playlist_buffer, playlist_size, NULL, numberofchunks);
 		if (playlist_size <= 0){
 			source->close(handle, 0);
 			return ;

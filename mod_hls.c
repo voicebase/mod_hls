@@ -403,9 +403,13 @@ int process_m3u8(request_rec *r, int lookup_uri, int http){
 	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: opened data source %s", data_source);
 
 	get_data_start = get_clock();
-	stats_size 			= media->get_media_stats(handle, source, NULL, 0);
+						//ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "11111", stats_size);
+	stats_size 			= media->get_media_stats(r, handle, source, NULL, 0);
+						ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "22222", stats_size);
 	stats_buffer		= (char*)apr_pcalloc(r->pool, stats_size);
+						//ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "33333", stats_size);
 	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: got media stats size %d", stats_size);
+						//ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "44444", stats_size);
 
 	if ( !stats_buffer ){
 		source->close(handle, 0);
@@ -414,7 +418,7 @@ int process_m3u8(request_rec *r, int lookup_uri, int http){
 		return HTTP_INSUFFICIENT_STORAGE;
 	}
 
-	stats_size 				= media->get_media_stats(handle, source, stats_buffer, stats_size);
+	stats_size 				= media->get_media_stats(r->pool, handle, source, stats_buffer, stats_size);
 
 	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: filled media stats buffer");
 
@@ -425,7 +429,8 @@ int process_m3u8(request_rec *r, int lookup_uri, int http){
 	if (pure_filename){
 		ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: got pure filename %s", pure_filename);
 
-		int playlist_size 		= generate_playlist(stats_buffer, pure_filename, NULL, 0, url);
+		int numofchunks=0;
+		int playlist_size 		= generate_playlist(stats_buffer, pure_filename, NULL, 0, url, &numofchunks);
 		char* playlist_buffer 	= (char*)apr_pcalloc(r->pool, playlist_size);
 
 		if ( !playlist_buffer ){
@@ -438,7 +443,7 @@ int process_m3u8(request_rec *r, int lookup_uri, int http){
 		ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: playlist buffer allocated");
 
 
-		playlist_size 			= generate_playlist(stats_buffer, pure_filename, playlist_buffer, playlist_size, url);
+		playlist_size 			= generate_playlist(stats_buffer, pure_filename, playlist_buffer, playlist_size, url, &numofchunks);
 		if (playlist_size <= 0){
 			ap_log_error(APLOG_MARK, APLOG_ERR, get_log_level(), r->server, "HLS: failed to fill playlist buffer");
 
@@ -581,7 +586,8 @@ int process_ts(request_rec *r, int lookup_uri, int http){
 
 	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: file opened");
 
-	stats_size 			= media->get_media_stats(handle, source, NULL, 0);
+
+	stats_size 			= media->get_media_stats(r->pool, handle, source, NULL, 0);
 	if ( stats_size <= 0){
 		ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "HLS: failed to get media stats size");
 		source->close(handle, 0);
@@ -600,7 +606,7 @@ int process_ts(request_rec *r, int lookup_uri, int http){
 	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: allocated space for media stats");
 
 
-	stats_size 				= media->get_media_stats(handle, source, stats_buffer, stats_size);
+	stats_size 				= media->get_media_stats(r->pool, handle, source, stats_buffer, stats_size);
 	if ( stats_size <= 0){
 		ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "HLS: failed to get media stats data");
 		source->close(handle, 0);
@@ -609,7 +615,7 @@ int process_ts(request_rec *r, int lookup_uri, int http){
 
 	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: got media stats data");
 
-	data_size 			= media->get_media_data(handle, source, stats_buffer, piece, NULL, 0);
+	data_size 			= media->get_media_data(r->pool, handle, source, stats_buffer, piece, NULL, 0);
 	if (data_size <= 0){
 		ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "HLS: failed to get media data size");
 		source->close(handle, 0);
@@ -629,7 +635,7 @@ int process_ts(request_rec *r, int lookup_uri, int http){
 	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), r->server, "HLS: allocated media data buffer");
 
 	get_data_start = get_clock();
-	data_size 			= media->get_media_data(handle, source, stats_buffer, piece, data_buffer, data_size);
+	data_size 			= media->get_media_data(r->pool, handle, source, stats_buffer, piece, data_buffer, data_size);
 	if (data_size <= 0){
 		ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "HLS: failed to get media data");
 		source->close(handle, 0);
@@ -780,7 +786,7 @@ static int hls_quick_handler(request_rec *r, int lookup_uri)
 
     return DECLINED;
 }
-void set_server_pool(apr_pool_t* p);
+//void set_server_pool(apr_pool_t* p);
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -825,7 +831,7 @@ static void hls_register_hooks(apr_pool_t *p)
 	set_segment_length(10);
 	set_allow_redirect(0);
 
-	set_server_pool(p);
+	//set_server_pool(p);
 	set_log_level(9);
 
 	set_data_path(NULL);

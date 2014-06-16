@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <curl/curl.h>
 #include "string.h"
-/*#include "httpd.h"
+#include "httpd.h"
 #include "http_config.h"
 #include "http_core.h"
 #include "http_log.h"
@@ -26,7 +26,7 @@
 #include "http_protocol.h"
 #include "http_request.h"
 #include "util_script.h"
-#include "http_connection.h"*/
+#include "http_connection.h"
 
 #include "hls_file.h"
 #include "mod_conf.h"
@@ -39,7 +39,7 @@
 }*/
 #define HLS_GLOBAL_CACHE_NAME "voicebase-hls-plugin-cache"
 
-#define TEST_APP
+//#define TEST_APP
 
 typedef struct apache_file_handler_t{
 #ifndef TEST_APP
