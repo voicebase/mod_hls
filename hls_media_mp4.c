@@ -1069,8 +1069,9 @@ int mp4_media_get_stats(void* context, file_handle_t* mp4, file_source_t* source
 	void* pool=context;
 #endif
 
-
+#ifdef HLS_PLUGIN
 	ap_log_error(APLOG_MARK, APLOG_WARNING, get_log_level(), rec_rec->server, "we are here");
+#endif
 
 	MP4_BOX* root=mp4_looking(pool, mp4,source);
 	int MediaStatsT=0;
