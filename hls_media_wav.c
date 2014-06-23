@@ -307,7 +307,7 @@ int wav_media_get_stats(void* context, file_handle_t* handle, file_source_t* sou
 	stats->track[1] = video_track;
 
 	track->codec 	= MPEG_AUDIO_L3;
-	track->dts	 	= 0;
+	track->dts	 	= pts;
 	track->n_frames = n_frames;
 	track->pts		= pts;
 	track->bitrate  = get_encode_audio_bitrate();
@@ -321,7 +321,7 @@ int wav_media_get_stats(void* context, file_handle_t* handle, file_source_t* sou
 
 	video_track->codec 						= H264_VIDEO;
 	video_track->bitrate 					= 0;
-	video_track->dts 						= 0;
+	video_track->dts 						= video_pts;
 	video_track->pts 						= video_pts;
 	video_track->repeat_for_every_segment 	= 1;
 	video_track->flags 						= video_flags;
